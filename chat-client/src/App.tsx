@@ -15,8 +15,11 @@ interface ChatMessage {
   text: string
 }
 
+const MAX_MESSAGES = 100
+
 function App() {
   const socketRef = useRef<WebSocket | null>(null)
+  const messageIdRef = useRef(0)
   const [serverUrl, setServerUrl] = useState('')
   const [status, setStatus] = useState('Idle')
   const [error, setError] = useState('')
@@ -28,6 +31,17 @@ function App() {
       socketRef.current?.close()
     }
   }, [])
+
+  const pushMessage = (text: string) => {
+    const nextMessage = {
+      id: messageIdRef.current,
+      text,
+    }
+
+    messageIdRef.current += 1
+
+    setMessages((current) => [nextMessage, ...current].slice(0, MAX_MESSAGES))
+  }
 
   const connect = async () => {
     setError('')
@@ -60,10 +74,7 @@ function App() {
       })
 
       socket.addEventListener('message', (event) => {
-        setMessages((current) => [
-          ...current,
-          { id: Date.now() + current.length, text: String(event.data) },
-        ])
+        pushMessage(String(event.data))
       })
 
       socket.addEventListener('error', () => {

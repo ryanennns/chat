@@ -1,33 +1,54 @@
 .app {
   display: grid;
-  gap: 1rem;
-  padding: 2rem;
+  gap: 0.5rem;
+  padding: 1rem;
+  justify-items: start;
+  text-align: left;
+  font-family: "SFMono-Regular", "Consolas", "Liberation Mono", monospace;
+  min-height: 100vh;
+  background: #111;
+  color: #e8e8e8;
 }
 
 .app button {
   width: fit-content;
-  padding: 0.75rem 1rem;
+  padding: 0.35rem 0.6rem;
+  font: inherit;
+  color: inherit;
+  background: #222;
+  border: 1px solid #444;
 }
 
 .chat-box {
   display: flex;
-  gap: 0.75rem;
+  gap: 0.35rem;
 }
 
 .chat-box input {
   min-width: 20rem;
-  padding: 0.75rem;
+  padding: 0.35rem 0.5rem;
+  font: inherit;
+  color: inherit;
+  background: #1a1a1a;
+  border: 1px solid #444;
 }
 
 .messages {
   display: grid;
-  gap: 0.5rem;
+  gap: 0.15rem;
+  width: min(100%, 48rem);
+  padding: 0.5rem;
+  border: 1px solid #333;
+  background: #181818;
 }
 
 .messages p {
   margin: 0;
+  line-height: 1.2;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .error {
-  color: #c62828;
+  color: #ff7b72;
 }
