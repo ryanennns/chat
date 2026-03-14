@@ -1,0 +1,18 @@
+{
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "node --watch index.ts"
+  },
+  "dependencies": {
+    "prettier": "^3.8.1",
+    "redis": "^5.11.0",
+    "uuid": "^13.0.0",
+    "ws": "^8.19.0"
+  },
+  "type": "module",
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "@types/ws": "^8.18.1",
+    "typescript": "^5.9.3"
+  }
+}
