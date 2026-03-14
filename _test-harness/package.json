@@ -1,0 +1,9 @@
+{
+  "name": "chat-test-harness",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch index.ts",
+    "start": "node index.ts"
+  }
+}
