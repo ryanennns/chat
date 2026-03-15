@@ -118,7 +118,7 @@ const healthChecks = async () => {
 
   const removeTheseServers: Array<string> = [];
   for (const key in serverHealthDictionary) {
-    if (new Date().getTime() - serverHealthDictionary[key] > 5000) {
+    if (new Date().getTime() - serverHealthDictionary[key] > 1_500) {
       removeTheseServers.push(key);
       delete serverHealthDictionary[key];
     }
