@@ -131,7 +131,7 @@ await subscriber.subscribe(
         reason: "new-wss",
       },
     };
-    const redistributeBy = Math.max(Number(message) * 0.25, 1);
+    const redistributeBy = Math.floor(Math.max(Number(message) * 0.25, 1));
     debugLog(`over by ${message}; nuking ${redistributeBy} clients`);
     // get random connections
     Object.values(connections)
@@ -177,9 +177,28 @@ const publishChat = async (
   await redisClient.publish(socket.chatId, JSON.stringify(message.payload));
 };
 
-const shutdown = async () => {
+let isShuttingDown = false;
+
+const shutdown = async (signal = "unknown") => {
+  if (isShuttingDown) {
+    return;
+  }
+
+  isShuttingDown = true;
+
   try {
-    debugLog("SIGTERM received. Shutting down Redis subscriber.");
+    debugLog(`${signal} received. Shutting down websocket server.`);
+    wss.clients.forEach((client) => client.close());
+    await new Promise<void>((resolve, reject) =>
+      wss.close((error) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+
+        resolve();
+      }),
+    );
     await removeSelfFromRedis(serverId);
     await subscriber.quit();
     await redisClient.quit();
@@ -191,5 +210,7 @@ const shutdown = async () => {
   }
 };
 
-process.on("SIGTERM", shutdown);
-process.on("SIGINT", shutdown);
+process.on("SIGTERM", () => void shutdown("SIGTERM"));
+process.on("SIGINT", () => void shutdown("SIGINT"));
+process.on("SIGUSR2", () => void shutdown("SIGUSR2"));
+process.on("SIGHUP", () => void shutdown("SIGHUP"));
