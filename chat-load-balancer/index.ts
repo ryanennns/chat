@@ -1,29 +1,24 @@
 import express from "express";
 import { createClient } from "redis";
-
-interface Server {
-  id: string;
-  url: string;
-}
+import { redisChatServersKey, type Server } from "@chat/shared";
 
 const app = express();
 const port = 3000;
 
 app.use(express.json());
 
-const key = "servers";
 const client = createClient();
 await client.connect();
 
 const resetClientList = async () => {
   const event = "wss-list.clear";
-  await client.del(key);
+  await client.del(redisChatServersKey);
   await client.publish(event, "");
 };
 await resetClientList();
 
 const getServers = async (): Promise<Array<Server>> =>
-  JSON.parse((await client.get(key)) ?? "[]") || [];
+  JSON.parse((await client.get(redisChatServersKey)) ?? "[]") || [];
 
 const serverLiveConnectionsKey = (server: Server) => `${server.id}-connections`;
 

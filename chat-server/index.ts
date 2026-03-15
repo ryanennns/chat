@@ -1,22 +1,22 @@
 import { createClient } from "redis";
 import { v4 } from "uuid";
 import WebSocket, { WebSocketServer } from "ws";
+import { redisChatServersKey } from "@chat/shared";
 
 interface Server {
   id: string;
   url: string;
 }
 
-const key = "servers";
 const redisClient = createClient();
 await redisClient.connect();
 
 const getServerList = async (): Promise<Server[]> =>
-  JSON.parse((await redisClient.get(key)) ?? "[]") ?? [];
+  JSON.parse((await redisClient.get(redisChatServersKey)) ?? "[]") ?? [];
 
 const removeServer = async (id: string) => {
   await redisClient.set(
-    key,
+    redisChatServersKey,
     JSON.stringify(
       (await getServerList()).filter((server: Server) => server.id !== id),
     ),
@@ -25,7 +25,7 @@ const removeServer = async (id: string) => {
 
 const addServer = async (id: string, url: string) => {
   await redisClient.set(
-    key,
+    redisChatServersKey,
     JSON.stringify([...(await getServerList()), { id, url }]),
   );
 };

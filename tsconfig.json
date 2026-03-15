@@ -5,7 +5,7 @@
     "moduleResolution": "NodeNext",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./*"]
+      "@chat/shared": ["./packages/shared/src/index.ts"]
     },
     "strict": true,
     "esModuleInterop": true,

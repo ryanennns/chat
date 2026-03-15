@@ -18,6 +18,7 @@
     "typescript": "^5.9.2"
   },
   "dependencies": {
+    "@chat/shared": "file:../packages/shared",
     "express": "^5.2.1",
     "prettier": "^3.8.1",
     "redis": "^5.11.0"
