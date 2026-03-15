@@ -1,5 +1,12 @@
+import type {
+  ChatPayload,
+  ClientMessage,
+  RegistrationPayload,
+} from "@chat/shared";
+
 const LOAD_BALANCER_URL = "http://localhost:3000";
 const CHATTER_COUNT = 1000;
+const CHAT_ROOM_COUNT = 20;
 const MESSAGE_INTERVAL_MIN_MS = 2_000;
 const MESSAGE_INTERVAL_MAX_MS = 6_000;
 const INITIAL_CONNECT_STAGGER_MS = 250;
@@ -59,18 +66,19 @@ const provisionServer = async (): Promise<ProvisionedServer> => {
   return payload;
 };
 
-const buildMessage = () => {
+const buildMessage = (chatRoomId: string) => {
   const wordCount = randomBetween(3, 8);
   const words = Array.from({ length: wordCount }, () => {
     return loremWords[randomBetween(0, loremWords.length - 1)];
   });
 
   const sentence = words.join(" ");
-  return `${sentence.charAt(0).toUpperCase()}${sentence.slice(1)}.`;
+  return `${chatRoomId} - ${sentence.charAt(0).toUpperCase()}${sentence.slice(1)}.`;
 };
 
 const runChatter = async (chatterId: number) => {
   const label = `chatter-${chatterId + 1}`;
+  const chatRoomId = `chat-room-${(chatterId % CHAT_ROOM_COUNT) + 1}`;
 
   while (true) {
     let socket: WebSocket | null = null;
@@ -85,7 +93,18 @@ const runChatter = async (chatterId: number) => {
         socket = new WebSocket(server.url);
 
         socket.addEventListener("open", () => {
-          console.log(`[${label}] connected`);
+          const registrationMessage: ClientMessage<RegistrationPayload> = {
+            type: "register",
+            payload: {
+              chatId: chatRoomId,
+            },
+          };
+
+          if (socket === null) {
+            return;
+          }
+          socket.send(JSON.stringify(registrationMessage));
+          console.log(`[${label}] connected to ${chatRoomId}`);
 
           sender = (async () => {
             while (keepSending) {
@@ -100,11 +119,18 @@ const runChatter = async (chatterId: number) => {
                 continue;
               }
 
-              const message = buildMessage();
-              const payload = JSON.stringify({ message });
+              const message = buildMessage(chatRoomId);
+              const payload: ClientMessage<ChatPayload> = {
+                type: "chat",
+                payload: {
+                  message,
+                },
+              };
 
-              socket.send(payload);
-              console.log(`[${label}] sent after ${delay}ms ${payload}`);
+              socket.send(JSON.stringify(payload));
+              console.log(
+                `[${label}] sent to ${chatRoomId} after ${delay}ms ${JSON.stringify(payload)}`,
+              );
             }
           })().catch((error) => {
             const message =
@@ -133,7 +159,7 @@ const runChatter = async (chatterId: number) => {
       console.error(`[${label}] ${message}`);
     } finally {
       keepSending = false;
-      socket?.close();
+      (socket as unknown as WebSocket).close();
       await sender;
     }
 
@@ -143,8 +169,12 @@ const runChatter = async (chatterId: number) => {
 };
 
 const main = async () => {
+  if (CHAT_ROOM_COUNT < 1) {
+    throw new Error("CHAT_ROOM_COUNT must be at least 1");
+  }
+
   console.log(
-    `Starting ${CHATTER_COUNT} simulated chatter(s) against ${LOAD_BALANCER_URL}`,
+    `Starting ${CHATTER_COUNT} simulated chatter(s) across ${CHAT_ROOM_COUNT} chat room(s) against ${LOAD_BALANCER_URL}`,
   );
 
   for (let index = 0; index < CHATTER_COUNT; index += 1) {
