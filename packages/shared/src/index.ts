@@ -4,18 +4,31 @@ export interface Server {
 }
 
 export const redisChatServersKey = "servers";
+export const newWssChannel = "new-wss";
 
-export interface ClientMessage<T> {
-  type: "chat" | "register";
+export interface WebSocketMessage<T> {
+  type: "chat" | "register" | "redistribute";
   payload: T;
 }
 
+// server --> client, client --> server
+// standard chat message payload
 export interface ChatPayload {
   message: string;
 }
 
+// client --> server; informs the server
+// which chat they are registering to, so
+// the server can sub to redis channel
 export interface RegistrationPayload {
   chatId: string;
+}
+
+// server --> client; informs client to
+// ask server for new wss connection for
+// rebalancing purposes
+export interface RedistributionPayload {
+  reason: string;
 }
 
 declare const process: {

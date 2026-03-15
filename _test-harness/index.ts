@@ -1,6 +1,6 @@
 import type {
   ChatPayload,
-  ClientMessage,
+  WebSocketMessage,
   RegistrationPayload,
 } from "@chat/shared";
 
@@ -93,7 +93,7 @@ const runChatter = async (chatterId: number) => {
         socket = new WebSocket(server.url);
 
         socket.addEventListener("open", () => {
-          const registrationMessage: ClientMessage<RegistrationPayload> = {
+          const registrationMessage: WebSocketMessage<RegistrationPayload> = {
             type: "register",
             payload: {
               chatId: chatRoomId,
@@ -120,7 +120,7 @@ const runChatter = async (chatterId: number) => {
               }
 
               const message = buildMessage(chatRoomId);
-              const payload: ClientMessage<ChatPayload> = {
+              const payload: WebSocketMessage<ChatPayload> = {
                 type: "chat",
                 payload: {
                   message,
