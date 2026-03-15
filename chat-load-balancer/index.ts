@@ -5,7 +5,6 @@ import {
   redisChatServersKey,
   redistributeChannelKeyGenerator,
   type Server,
-  type WebSocketMessage,
 } from "@chat/shared";
 
 const app = express();
@@ -61,10 +60,13 @@ const shouldRedistribute = (
   console.log({
     distribution,
     optimalDistribution,
-    ratio: (distribution / optimalDistribution),
+    ratio: (distribution / optimalDistribution).toFixed(3),
   });
-  return distribution > optimalDistribution &&
-      distribution / optimalDistribution > 0.95;
+  return (
+    distribution > optimalDistribution &&
+    distribution - optimalDistribution > 1 &&
+    distribution / optimalDistribution > 0.95
+  );
 };
 
 setInterval(async () => {
@@ -102,7 +104,7 @@ setInterval(async () => {
 
   debugLog(serverIdToActiveConnectionsMap);
   debugLog(`optimal distribution: ${activeClients / activeServers}`);
-}, 5000);
+}, 1000);
 
 app.listen(port, () => {
   console.log(`listening on port ${port}`);
