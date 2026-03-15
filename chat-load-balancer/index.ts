@@ -58,14 +58,13 @@ const shouldRedistribute = (
 ) => {
   const optimalDistribution = totalClients / totalServers;
 
-  if (
-    distribution > optimalDistribution &&
-    (distribution - optimalDistribution) / optimalDistribution < 0.95
-  ) {
-    return true;
-  }
-
-  return false;
+  console.log({
+    distribution,
+    optimalDistribution,
+    ratio: (distribution / optimalDistribution),
+  });
+  return distribution > optimalDistribution &&
+      distribution / optimalDistribution > 0.95;
 };
 
 setInterval(async () => {
