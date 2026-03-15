@@ -563,54 +563,11 @@
       "lineHeight": 1.25
     },
     {
-      "id": "DDk7aXdrQiPCEn-0PlQdg",
-      "type": "rectangle",
-      "x": 475.1747687987796,
-      "y": 145.87743284585395,
-      "width": 285.0997636386769,
-      "height": 299.0257215380424,
-      "angle": 0,
-      "strokeColor": "#1e1e1e",
-      "backgroundColor": "transparent",
-      "fillStyle": "solid",
-      "strokeWidth": 1,
-      "strokeStyle": "solid",
-      "roughness": 1,
-      "opacity": 100,
-      "groupIds": [],
-      "frameId": null,
-      "index": "aO",
-      "roundness": {
-        "type": 3
-      },
-      "seed": 987415945,
-      "version": 806,
-      "versionNonce": 1351600503,
-      "isDeleted": false,
-      "boundElements": [
-        {
-          "id": "OOERRtNBarO8b-lohbrfX",
-          "type": "arrow"
-        },
-        {
-          "id": "cYQmXaODSxlaY-RjJjLB3",
-          "type": "arrow"
-        },
-        {
-          "id": "gCN7eH1s2zZR3uHtOvka6",
-          "type": "arrow"
-        }
-      ],
-      "updated": 1773575205836,
-      "link": null,
-      "locked": false
-    },
-    {
       "id": "gCN7eH1s2zZR3uHtOvka6",
       "type": "arrow",
-      "x": 473.63374893342325,
-      "y": 432.7805307377577,
-      "width": 277.53147922736963,
+      "x": 494.49585201674654,
+      "y": 427.39788407708534,
+      "width": 298.3935823106929,
       "height": 70.71189575715641,
       "angle": 0,
       "strokeColor": "#1e1e1e",
@@ -627,8 +584,8 @@
         "type": 2
       },
       "seed": 1853344873,
-      "version": 1519,
-      "versionNonce": 1456602297,
+      "version": 1599,
+      "versionNonce": 204881239,
       "isDeleted": false,
       "boundElements": [
         {
@@ -636,7 +593,7 @@
           "id": "BR1AY2uT5W5ej1sVSc07b"
         }
       ],
-      "updated": 1773575218950,
+      "updated": 1773579915687,
       "link": null,
       "locked": false,
       "points": [
@@ -645,12 +602,12 @@
           0
         ],
         [
-          -141.23792624757903,
-          50.51809086241053
+          -162.10002933090232,
+          55.90073752308291
         ],
         [
-          -277.53147922736963,
-          -20.19380489474588
+          -298.3935823106929,
+          -14.811158234073503
         ]
       ],
       "startBinding": {
@@ -670,10 +627,10 @@
     {
       "id": "OOERRtNBarO8b-lohbrfX",
       "type": "arrow",
-      "x": 367.8422525474016,
+      "x": 368.55885262377905,
       "y": -22.261921553805173,
-      "width": 115.72097362038579,
-      "height": 168.73706934326339,
+      "width": 134.68479237853353,
+      "height": 167.2609032360104,
       "angle": 0,
       "strokeColor": "#1e1e1e",
       "backgroundColor": "transparent",
@@ -689,8 +646,8 @@
         "type": 2
       },
       "seed": 285057033,
-      "version": 1036,
-      "versionNonce": 803928121,
+      "version": 1116,
+      "versionNonce": 462280471,
       "isDeleted": false,
       "boundElements": [
         {
@@ -698,7 +655,7 @@
           "id": "c4O66fYPSL26fcNqaW-GW"
         }
       ],
-      "updated": 1773575166937,
+      "updated": 1773579915687,
       "link": null,
       "locked": false,
       "points": [
@@ -707,8 +664,8 @@
           0
         ],
         [
-          115.72097362038579,
-          168.73706934326339
+          134.68479237853353,
+          167.2609032360104
         ]
       ],
       "startBinding": {
@@ -735,10 +692,10 @@
     {
       "id": "cYQmXaODSxlaY-RjJjLB3",
       "type": "arrow",
-      "x": 469.6747687987796,
-      "y": 195.46329680348154,
-      "width": 237.95136265012687,
-      "height": 173.61488809591353,
+      "x": 491.53994673069275,
+      "y": 293.96629181323834,
+      "width": 259.6090048722392,
+      "height": 77.5269781752072,
       "angle": 0,
       "strokeColor": "#1e1e1e",
       "backgroundColor": "transparent",
@@ -754,8 +711,8 @@
         "type": 2
       },
       "seed": 431953161,
-      "version": 1038,
-      "versionNonce": 1412532505,
+      "version": 1237,
+      "versionNonce": 873520183,
       "isDeleted": false,
       "boundElements": [
         {
@@ -763,7 +720,7 @@
           "id": "Sk8_2eGNXomI7M-KdVwFv"
         }
       ],
-      "updated": 1773575166937,
+      "updated": 1773579915687,
       "link": null,
       "locked": false,
       "points": [
@@ -772,16 +729,16 @@
           0
         ],
         [
-          -237.95136265012687,
-          173.61488809591353
+          -259.6090048722392,
+          77.5269781752072
         ]
       ],
       "startBinding": {
         "elementId": "DDk7aXdrQiPCEn-0PlQdg",
         "mode": "orbit",
         "fixedPoint": [
-          0.08988014436047059,
-          0.08988014436047057
+          0,
+          0.5001
         ]
       },
       "endBinding": {
@@ -798,52 +755,10 @@
       "moveMidPointsWithElement": false
     },
     {
-      "id": "VurhYVlIqeMl2HGgkok0F",
-      "type": "text",
-      "x": 500.10174369077254,
-      "y": 159.21577588368484,
-      "width": 35.57999801635742,
-      "height": 25,
-      "angle": 0,
-      "strokeColor": "#1e1e1e",
-      "backgroundColor": "transparent",
-      "fillStyle": "solid",
-      "strokeWidth": 1,
-      "strokeStyle": "solid",
-      "roughness": 1,
-      "opacity": 100,
-      "groupIds": [],
-      "frameId": null,
-      "index": "aQ",
-      "roundness": null,
-      "seed": 1843988144,
-      "version": 98,
-      "versionNonce": 1492308048,
-      "isDeleted": false,
-      "boundElements": [
-        {
-          "id": "OOERRtNBarO8b-lohbrfX",
-          "type": "arrow"
-        }
-      ],
-      "updated": 1773513312667,
-      "link": null,
-      "locked": false,
-      "text": "wss",
-      "fontSize": 20,
-      "fontFamily": 5,
-      "textAlign": "left",
-      "verticalAlign": "top",
-      "containerId": null,
-      "originalText": "wss",
-      "autoResize": true,
-      "lineHeight": 1.25
-    },
-    {
       "id": "kgnTxnNZU3vg8SeyFewXv",
       "type": "text",
-      "x": 363.1517415930921,
-      "y": 150.85448450504109,
+      "x": 383.4705335857417,
+      "y": 207.98085809853475,
       "width": 104.89475653762666,
       "height": 43.21426440507493,
       "angle": 0,
@@ -859,11 +774,11 @@
       "index": "aS",
       "roundness": null,
       "seed": 592318032,
-      "version": 1003,
-      "versionNonce": 1118499545,
+      "version": 1064,
+      "versionNonce": 729629303,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1773574878798,
+      "updated": 1773579918696,
       "link": null,
       "locked": false,
       "text": "- writes incoming socket\n  msg to redis\n- writes incoming redis\n  messages to socket",
@@ -877,10 +792,99 @@
       "lineHeight": 1.25
     },
     {
+      "id": "DDk7aXdrQiPCEn-0PlQdg",
+      "type": "rectangle",
+      "x": 497.0399467306928,
+      "y": 142.78106472095635,
+      "width": 285.0997636386769,
+      "height": 299.0257215380424,
+      "angle": 0,
+      "strokeColor": "#1e1e1e",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [
+        "b0thV4h-Y57tZLhUAlm2U"
+      ],
+      "frameId": null,
+      "index": "aT",
+      "roundness": {
+        "type": 3
+      },
+      "seed": 987415945,
+      "version": 888,
+      "versionNonce": 1053339127,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "OOERRtNBarO8b-lohbrfX",
+          "type": "arrow"
+        },
+        {
+          "id": "cYQmXaODSxlaY-RjJjLB3",
+          "type": "arrow"
+        },
+        {
+          "id": "gCN7eH1s2zZR3uHtOvka6",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1773579915686,
+      "link": null,
+      "locked": false
+    },
+    {
+      "id": "VurhYVlIqeMl2HGgkok0F",
+      "type": "text",
+      "x": 521.9669216226857,
+      "y": 156.11940775878725,
+      "width": 35.57999801635742,
+      "height": 25,
+      "angle": 0,
+      "strokeColor": "#1e1e1e",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [
+        "b0thV4h-Y57tZLhUAlm2U"
+      ],
+      "frameId": null,
+      "index": "aU",
+      "roundness": null,
+      "seed": 1843988144,
+      "version": 180,
+      "versionNonce": 928152183,
+      "isDeleted": false,
+      "boundElements": [
+        {
+          "id": "OOERRtNBarO8b-lohbrfX",
+          "type": "arrow"
+        }
+      ],
+      "updated": 1773579915687,
+      "link": null,
+      "locked": false,
+      "text": "wss",
+      "fontSize": 20,
+      "fontFamily": 5,
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "containerId": null,
+      "originalText": "wss",
+      "autoResize": true,
+      "lineHeight": 1.25
+    },
+    {
       "id": "DrnZaPD-EDuaHGoiajaie",
       "type": "text",
-      "x": 496.98407708634227,
-      "y": 188.19368655647042,
+      "x": 520.262579841815,
+      "y": 184.55428522964536,
       "width": 257.14918193709707,
       "height": 130,
       "angle": 0,
@@ -891,16 +895,18 @@
       "strokeStyle": "solid",
       "roughness": 1,
       "opacity": 100,
-      "groupIds": [],
+      "groupIds": [
+        "b0thV4h-Y57tZLhUAlm2U"
+      ],
       "frameId": null,
-      "index": "aT",
+      "index": "aV",
       "roundness": null,
       "seed": 118490135,
-      "version": 1035,
-      "versionNonce": 1210767319,
+      "version": 1190,
+      "versionNonce": 1781142423,
       "isDeleted": false,
       "boundElements": null,
-      "updated": 1773575132786,
+      "updated": 1773579915687,
       "link": null,
       "locked": false,
       "text": "on new client connection...\n- write socket to list with property\nto indicate that it is not ready to\nsend or receive msgs yet\n- wait for client to send chat ID\n    - if not sent within 15s, dc client\n- when ID received, toggle socket on\n- subscribe to redis event chat-{id}",
@@ -916,8 +922,8 @@
     {
       "id": "reBfByUeset3Vb7hTSzwa",
       "type": "text",
-      "x": 497.67799865394977,
-      "y": 330.0787310566443,
+      "x": 519.543176585863,
+      "y": 326.9823629317467,
       "width": 246.40171813964844,
       "height": 97.5,
       "angle": 0,
@@ -928,16 +934,18 @@
       "strokeStyle": "dotted",
       "roughness": 1,
       "opacity": 100,
-      "groupIds": [],
+      "groupIds": [
+        "b0thV4h-Y57tZLhUAlm2U"
+      ],
       "frameId": null,
-      "index": "aU",
+      "index": "aW",
       "roundness": null,
       "seed": 18643447,
-      "version": 493,
-      "versionNonce": 1860219991,
+      "version": 575,
+      "versionNonce": 1290897591,
       "isDeleted": false,
       "boundElements": null,
-      "updated": 1773575134255,
+      "updated": 1773579915687,
       "link": null,
       "locked": false,
       "text": "on client disconnect...\n- delete socket from record\n- check if any other sockets in the\nrecord have a chat ID of the same ID\n    - if so, unsubscribe from respective\n    redis pub/sub channel",
