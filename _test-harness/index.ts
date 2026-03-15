@@ -5,8 +5,8 @@ import type {
 } from "@chat/shared";
 
 const LOAD_BALANCER_URL = "http://localhost:3000";
-const CHATTER_COUNT = 3333;
-const CHAT_ROOM_COUNT = 3;
+const CHATTER_COUNT = 100;
+const CHAT_ROOM_COUNT = 1;
 const MESSAGE_INTERVAL_MIN_MS = 2_000;
 const MESSAGE_INTERVAL_MAX_MS = 6_000;
 const INITIAL_CONNECT_STAGGER_MS = 250;
@@ -91,6 +91,14 @@ const runChatter = async (chatterId: number) => {
 
       await new Promise<void>((resolve, reject) => {
         socket = new WebSocket(server.url);
+
+        socket.addEventListener("message", (message) => {
+          const payload = JSON.parse(message.data) as WebSocketMessage<unknown>
+
+          if (payload.type === "redistribute") {
+            socket?.close();
+          }
+        })
 
         socket.addEventListener("open", () => {
           const registrationMessage: WebSocketMessage<RegistrationPayload> = {

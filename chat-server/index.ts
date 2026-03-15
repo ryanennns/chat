@@ -5,6 +5,7 @@ import {
   debugLog,
   redistributeChannel,
   redisChatServersKey,
+  redistributeChannelKeyGenerator,
 } from "@chat/shared";
 import type {
   ChatPayload,
@@ -116,25 +117,27 @@ wss.on("connection", async (socket) => {
 
   connections[uuid] = client;
   await redisClient.incr(liveConnectionsRedisKey);
-
-  debugLog(JSON.stringify(Object.values(connections).map((c) => c.chatId)));
 });
 
 const subscriber = createClient();
 await subscriber.connect();
 
-await subscriber.subscribe(redistributeChannel, () => {
-  debugLog("server asked to redistribute");
-  const payload: WebSocketMessage<RedistributionPayload> = {
-    type: "redistribute",
-    payload: {
-      reason: "new-wss",
-    },
-  };
-  Object.values(connections).forEach((socket) =>
-    socket.send(JSON.stringify(payload)),
-  );
-});
+await subscriber.subscribe(
+  redistributeChannelKeyGenerator(serverId),
+  (message: string) => {
+    const payload: WebSocketMessage<RedistributionPayload> = {
+      type: "redistribute",
+      payload: {
+        reason: "new-wss",
+      },
+    };
+    const redistributeBy = Math.max(Number(message) * 0.25, 1)
+    debugLog(`server asked to redistribute, over by ${message}; nuking ${redistributeBy} clients`);
+    Object.values(connections).sort(() => 0.5 - Math.random()).slice(0,redistributeBy).forEach((socket) =>
+      socket.send(JSON.stringify(payload)),
+    );
+  },
+);
 
 const isSubscribedToChannel = (chatId: string) =>
   Object.values(connections).filter((socket) => socket.chatId === chatId)
@@ -148,13 +151,12 @@ const registerSocket = async (
   const chatChannel = registrationMessage.payload.chatId;
 
   if (isSubscribedToChannel(chatChannel)) {
-    debugLog(`already subscribed to ${chatChannel}`);
     return;
   }
 
-  debugLog(`subscribing to ${chatChannel}`);
+  // debugLog(`subscribing to ${chatChannel}`);
   await subscriber.subscribe(chatChannel, (message: string) => {
-    debugLog(`redis msg --> channel ${chatChannel} ${message}`);
+    // debugLog(`redis msg --> channel ${chatChannel} ${message}`);
     Object.values(connections)
       .filter((socket) => socket.chatId === registrationMessage.payload.chatId)
       .forEach((socket) => socket.send(message));
@@ -169,7 +171,7 @@ const publishChat = async (
     return;
   }
 
-  debugLog(`wss --> redis: ${JSON.stringify(message.payload)}`);
+  // debugLog(`wss --> redis: ${JSON.stringify(message.payload)}`);
   await redisClient.publish(socket.chatId, JSON.stringify(message.payload));
 };
 

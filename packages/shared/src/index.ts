@@ -5,6 +5,8 @@ export interface Server {
 
 export const redisChatServersKey = "servers";
 export const redistributeChannel = "wss-redistribute";
+export const redistributeChannelKeyGenerator = (serverId: string) =>
+  `${serverId}-${redistributeChannel}`;
 
 export interface WebSocketMessage<T> {
   type: "chat" | "register" | "redistribute";
@@ -35,7 +37,7 @@ declare const process: {
   env: Record<string, string | undefined>;
 };
 
-export const debugLog = (message: string) => {
+export const debugLog = (message: any) => {
   if (process.env.CHAT_DEBUG_LOG === "true") {
     console.log(message);
   }

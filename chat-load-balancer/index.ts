@@ -1,24 +1,30 @@
 import express from "express";
 import { createClient } from "redis";
-import { redisChatServersKey, type Server } from "@chat/shared";
+import {
+  debugLog,
+  redisChatServersKey,
+  redistributeChannelKeyGenerator,
+  type Server,
+  type WebSocketMessage,
+} from "@chat/shared";
 
 const app = express();
 const port = 3000;
 
 app.use(express.json());
 
-const client = createClient();
-await client.connect();
+const redisClient = createClient();
+await redisClient.connect();
 
 const getServers = async (): Promise<Array<Server>> =>
-  JSON.parse((await client.get(redisChatServersKey)) ?? "[]") || [];
+  JSON.parse((await redisClient.get(redisChatServersKey)) ?? "[]") || [];
 
 console.log(`${(await getServers()).length} active servers`);
 
 const serverLiveConnectionsKey = (server: Server) => `${server.id}-connections`;
 
 const getLiveConnections = async (server: Server): Promise<number> => {
-  return Number((await client.get(serverLiveConnectionsKey(server))) ?? 0);
+  return Number((await redisClient.get(serverLiveConnectionsKey(server))) ?? 0);
 };
 
 app.get("/servers", async (req, res) => {
@@ -37,7 +43,6 @@ app.get("/servers/provision", async (req, res) => {
   let server = servers[0];
   for (const s of servers) {
     const liveConnections = await getLiveConnections(s);
-    console.log(`server ${s.id} has ${liveConnections}`);
     if (liveConnections < (await getLiveConnections(server))) {
       server = s;
     }
@@ -46,15 +51,63 @@ app.get("/servers/provision", async (req, res) => {
   res.send(JSON.stringify(server));
 });
 
+const shouldRedistribute = (
+  distribution: number,
+  totalClients: number,
+  totalServers: number,
+) => {
+  const optimalDistribution = totalClients / totalServers;
+
+  if (
+    distribution > optimalDistribution &&
+    (distribution - optimalDistribution) / optimalDistribution < 0.95
+  ) {
+    return true;
+  }
+
+  return false;
+};
+
+setInterval(async () => {
+  const servers = await getServers();
+  let activeClients = 0;
+  let activeServers = servers.length;
+  const serverIdToActiveConnectionsMap: Record<string, number> = {};
+  for (const server of servers) {
+    serverIdToActiveConnectionsMap[server.id] = Number(
+      (await redisClient.get(`${server.id}-connections`)) ?? 0,
+    );
+    activeClients += serverIdToActiveConnectionsMap[server.id];
+  }
+
+  const optimalDistribution = activeClients / activeServers;
+
+  for (const server of servers) {
+    if (shouldRedistribute(serverIdToActiveConnectionsMap[server.id], activeClients, activeServers)) {
+      debugLog(`${server.id} needs client redistribution`);
+      await redisClient.publish(
+        redistributeChannelKeyGenerator(server.id),
+        JSON.stringify(
+          serverIdToActiveConnectionsMap[server.id] -
+            Math.floor(optimalDistribution),
+        ),
+      );
+    }
+  }
+
+  debugLog(serverIdToActiveConnectionsMap)
+  debugLog(`optimal distribution: ${activeClients / activeServers}`);
+}, 1000);
+
 app.listen(port, () => {
   console.log(`listening on port ${port}`);
 });
 
 const shutdown = async () => {
   try {
-    await client.quit();
+    await redisClient.quit();
   } catch {
-    client.destroy();
+    redisClient.destroy();
   } finally {
     process.exit(0);
   }
