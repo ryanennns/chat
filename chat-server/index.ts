@@ -131,11 +131,13 @@ await subscriber.subscribe(
         reason: "new-wss",
       },
     };
-    const redistributeBy = Math.max(Number(message) * 0.25, 1)
-    debugLog(`server asked to redistribute, over by ${message}; nuking ${redistributeBy} clients`);
-    Object.values(connections).sort(() => 0.5 - Math.random()).slice(0,redistributeBy).forEach((socket) =>
-      socket.send(JSON.stringify(payload)),
-    );
+    const redistributeBy = Math.max(Number(message) * 0.25, 1);
+    debugLog(`over by ${message}; nuking ${redistributeBy} clients`);
+    // get random connections
+    Object.values(connections)
+      .sort(() => 0.5 - Math.random())
+      .slice(0, redistributeBy)
+      .forEach((socket) => socket.send(JSON.stringify(payload)));
   },
 );
 

@@ -83,7 +83,13 @@ setInterval(async () => {
   const optimalDistribution = activeClients / activeServers;
 
   for (const server of servers) {
-    if (shouldRedistribute(serverIdToActiveConnectionsMap[server.id], activeClients, activeServers)) {
+    if (
+      shouldRedistribute(
+        serverIdToActiveConnectionsMap[server.id],
+        activeClients,
+        activeServers,
+      )
+    ) {
       debugLog(`${server.id} needs client redistribution`);
       await redisClient.publish(
         redistributeChannelKeyGenerator(server.id),
@@ -95,9 +101,9 @@ setInterval(async () => {
     }
   }
 
-  debugLog(serverIdToActiveConnectionsMap)
+  debugLog(serverIdToActiveConnectionsMap);
   debugLog(`optimal distribution: ${activeClients / activeServers}`);
-}, 1000);
+}, 5000);
 
 app.listen(port, () => {
   console.log(`listening on port ${port}`);
