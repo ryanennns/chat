@@ -88,8 +88,16 @@ wss.on("connection", async (socket) => {
   });
 
   client.on("close", () => {
+    const socket: ClientSocket = connections[uuid];
     delete connections[uuid];
-    debugLog("closing");
+
+    if (
+      Object.values(connections).filter((c) => c.chatId !== socket.chatId)
+        .length < 1
+    ) {
+      debugLog(`unsubscribing from ${socket.chatId}`);
+      subscriber.unsubscribe(socket.chatId);
+    }
   });
 
   client.send(
