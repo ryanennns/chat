@@ -141,8 +141,10 @@ await subscriber.subscribe(
   },
 );
 
-await subscriber.subscribe("ping", () => {
-  console.log("received ping");
+await subscriber.subscribe("ping", async () => {
+  if (!(await getServerList()).find((s) => s.id === serverId)) {
+    await addSelfToRedis(serverId, url);
+  }
   void redisClient.publish("pong", serverId);
 });
 

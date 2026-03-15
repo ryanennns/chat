@@ -57,11 +57,11 @@ const shouldRedistribute = (
 ) => {
   const optimalDistribution = totalClients / totalServers;
 
-  console.log({
-    distribution,
-    optimal: Number(optimalDistribution.toFixed(4)),
-    ratio: Number((distribution / optimalDistribution).toFixed(4)),
-  });
+  // console.log({
+  //   distribution,
+  //   optimal: Number(optimalDistribution.toFixed(4)),
+  //   ratio: Number((distribution / optimalDistribution).toFixed(4)),
+  // });
   return (
     distribution > optimalDistribution &&
     distribution - optimalDistribution > 1 &&
@@ -104,9 +104,8 @@ async function redistributeLoad() {
   debugLog(`optimal distribution: ${activeClients / activeServers}`);
 }
 
-const servers = await getServers();
 const serverHealthDictionary: Record<string, number> = {};
-servers.forEach(
+(await getServers()).forEach(
   (server) => (serverHealthDictionary[server.id] = new Date().getTime()),
 );
 let pingClient = createClient();
