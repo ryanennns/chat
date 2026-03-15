@@ -98,6 +98,8 @@ wss.on("connection", async (socket) => {
       debugLog(`unsubscribing from ${socket.chatId}`);
       subscriber.unsubscribe(socket.chatId);
     }
+
+    redisClient.decr(liveConnectionsRedisKey);
   });
 
   client.send(
@@ -108,10 +110,7 @@ wss.on("connection", async (socket) => {
   );
 
   connections[uuid] = client;
-  await redisClient.set(
-    liveConnectionsRedisKey,
-    Object.keys(connections).length,
-  );
+  await redisClient.incr(liveConnectionsRedisKey);
 
   debugLog(JSON.stringify(Object.values(connections).map((c) => c.chatId)));
 });
