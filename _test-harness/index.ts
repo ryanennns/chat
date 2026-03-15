@@ -5,12 +5,12 @@ import type {
 } from "@chat/shared";
 
 const LOAD_BALANCER_URL = "http://localhost:3000";
-const CHATTER_COUNT = 5000;
+const CHATTER_COUNT = 1500;
 const CHAT_ROOM_COUNT = 1;
-const MESSAGE_INTERVAL_MIN_MS = 500;
+const MESSAGE_INTERVAL_MIN_MS = 1500;
 const MESSAGE_INTERVAL_MAX_MS = 6_000;
-const INITIAL_CONNECT_STAGGER_MS = 15;
-const RECONNECT_DELAY_MS = 5;
+const INITIAL_CONNECT_STAGGER_MS = 30;
+const RECONNECT_DELAY_MS = 100;
 
 type ProvisionedServer = {
   id: string;
@@ -167,7 +167,9 @@ const runChatter = async (chatterId: number) => {
       console.error(`[${label}] ${message}`);
     } finally {
       keepSending = false;
-      (socket as unknown as WebSocket).close();
+      if (socket) {
+        (socket as unknown as WebSocket).close();
+      }
       await sender;
     }
 

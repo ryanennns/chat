@@ -1,7 +1,7 @@
 {
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "dev": "node --env-file=../.env --watch index.ts"
+    "dev": "node --env-file=../.env --max-old-space-size=8192 --watch index.ts"
   },
   "dependencies": {
     "@chat/shared": "file:../packages/shared",

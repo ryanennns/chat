@@ -1,20 +1,19 @@
 import { createClient } from "redis";
 import { v4 } from "uuid";
 import WebSocket, { WebSocketServer } from "ws";
-import {
-  debugLog,
-  redisRedistributeChannelFactory,
-  serversLoadKey,
-  redisServerKeyFactory,
-  serversTimeoutKey,
-  addServerToRedis,
-  removeServerFromRedis,
-} from "@chat/shared";
 import type {
   ChatPayload,
-  WebSocketMessage,
-  RegistrationPayload,
   RedistributionPayload,
+  RegistrationPayload,
+  WebSocketMessage,
+} from "@chat/shared";
+import {
+  addServerToRedis,
+  debugLog,
+  redisRedistributeChannelFactory,
+  removeServerFromRedis,
+  serversLoadKey,
+  serversTimeoutKey,
 } from "@chat/shared";
 
 const redisClient = createClient();
@@ -34,6 +33,7 @@ const addSelfToRedis = async () => {
 };
 
 interface ClientSocket extends WebSocket {
+  id: string;
   isAlive: boolean;
   chatId: string | undefined;
 }
@@ -57,11 +57,11 @@ let { wss, port, serverId } = await websocketServerFactory(8080);
 const url = `ws://localhost:${port}`;
 debugLog(`started ${serverId} on port ${port}`);
 void addSelfToRedis();
-const connections: Record<string, ClientSocket> = {};
+const connections: Record<string, Set<ClientSocket>> = {};
 
 wss.on("connection", async (socket) => {
   const client = socket as ClientSocket;
-  const uuid = v4();
+  client.id = v4();
 
   client.isAlive = true;
 
@@ -88,15 +88,10 @@ wss.on("connection", async (socket) => {
   });
 
   client.on("close", () => {
-    const socket: ClientSocket = connections[uuid];
-    delete connections[uuid];
-
-    if (
-      Object.values(connections).filter((c) => c.chatId === socket.chatId)
-        .length < 1
-    ) {
-      debugLog(`unsubscribing from ${socket.chatId}`);
-      subscriber.unsubscribe(socket.chatId);
+    connections[client.chatId!]?.delete(client);
+    if (connections[client.chatId!]?.size < 1) {
+      debugLog(`unsubscribing from ${client.chatId}`);
+      subscriber.unsubscribe(client.chatId);
     }
 
     redisClient.zIncrBy(serversLoadKey, -1, serverId);
@@ -109,7 +104,6 @@ wss.on("connection", async (socket) => {
     }),
   );
 
-  connections[uuid] = client;
   await redisClient.zIncrBy(serversLoadKey, 1, serverId);
 });
 
@@ -129,6 +123,8 @@ await subscriber.subscribe(
     debugLog(`over by ${message}; nuking ${redistributeBy} clients`);
     // get random connections
     Object.values(connections)
+      .map((c) => [...c])
+      .flat()
       .sort(() => 0.5 - Math.random())
       .slice(0, redistributeBy)
       .forEach((socket) => socket.send(JSON.stringify(payload)));
@@ -142,28 +138,34 @@ setInterval(() => {
   });
 }, 1000);
 
-const isSubscribedToChannel = (chatId: string) =>
-  Object.values(connections).filter((socket) => socket.chatId === chatId)
-    .length > 1;
-
 const registerSocket = async (
   registrationMessage: WebSocketMessage<RegistrationPayload>,
   socket: ClientSocket,
 ) => {
-  socket.chatId = registrationMessage.payload.chatId;
   const chatChannel = registrationMessage.payload.chatId;
 
-  if (isSubscribedToChannel(chatChannel)) {
-    return;
+  if (connections[chatChannel] === undefined) {
+    debugLog(`subscribing to ${chatChannel}`);
+    await subscriber.subscribe(chatChannel, (message: string) => {
+      // debugLog(`redis msg --> channel ${chatChannel} ${message}`);
+      connections[registrationMessage.payload.chatId].forEach((socket) =>
+        socket.send(message),
+      );
+    });
   }
 
-  // debugLog(`subscribing to ${chatChannel}`);
-  await subscriber.subscribe(chatChannel, (message: string) => {
-    // debugLog(`redis msg --> channel ${chatChannel} ${message}`);
-    Object.values(connections)
-      .filter((socket) => socket.chatId === registrationMessage.payload.chatId)
-      .forEach((socket) => socket.send(message));
-  });
+  socket.chatId = registrationMessage.payload.chatId;
+
+  connections[socket.chatId] =
+    connections[socket.chatId] === undefined
+      ? new Set()
+      : connections[socket.chatId];
+
+  console.log(`adding a chatter to bucket ${chatChannel}`);
+  console.log(`before: ${connections[chatChannel].size}`);
+
+  connections[chatChannel].add(socket);
+  console.log(`after: ${connections[chatChannel].size}`);
 };
 
 const publishChat = async (

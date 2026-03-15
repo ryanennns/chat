@@ -1,11 +1,8 @@
 import express from "express";
 import { createClient } from "redis";
 import {
-  debugLog,
-  redisChatServersKey,
   serversLoadKey,
   redisRedistributeChannelFactory,
-  type Server,
   serversTimeoutKey,
   removeServerFromRedis,
   redisServerKeyFactory,
@@ -18,12 +15,6 @@ app.use(express.json());
 
 const redisClient = createClient();
 await redisClient.connect();
-
-const serverLiveConnectionsKey = (server: Server) => `${server.id}-connections`;
-
-const getLiveConnections = async (server: Server): Promise<number> => {
-  return Number((await redisClient.get(serverLiveConnectionsKey(server))) ?? 0);
-};
 
 app.get("/servers/provision", async (req, res) => {
   let id: string | null = (await redisClient.zRange(serversLoadKey, 0, 0))[0];
@@ -97,39 +88,6 @@ async function redistributeLoad() {
       );
     }
   }
-
-  // const servers = await getServers();
-  // let activeClients = 0;
-  // let activeServers = servers.length;
-  // const serverIdToActiveConnectionsMap: Record<string, number> = {};
-  // for (const server of servers) {
-  //   serverIdToActiveConnectionsMap[server.id] = Number(
-  //     (await redisClient.get(`${server.id}-connections`)) ?? 0,
-  //   );
-  //   activeClients += serverIdToActiveConnectionsMap[server.id];
-  // }
-  //
-  // const optimalDistribution = activeClients / activeServers;
-  //
-  // for (const server of servers) {
-  //   if (
-  //     shouldRedistribute(
-  //       serverIdToActiveConnectionsMap[server.id],
-  //       activeClients,
-  //       activeServers,
-  //     )
-  //   ) {
-  //     await redisClient.publish(
-  //       redisRedistributeChannelFactory(server.id),
-  //       JSON.stringify(
-  //         serverIdToActiveConnectionsMap[server.id] -
-  //           Math.floor(optimalDistribution),
-  //       ),
-  //     );
-  //   }
-  // }
-  // debugLog(serverIdToActiveConnectionsMap);
-  // debugLog(`optimal distribution: ${activeClients / activeServers}`);
 }
 
 const healthChecks = async () => {
@@ -144,7 +102,7 @@ const healthChecks = async () => {
     async (serverId) => await removeServerFromRedis(serverId),
   );
 
-  console.log("dead servers", deadServerIds);
+  // console.log("dead servers", deadServerIds);
 };
 
 setInterval(async () => {

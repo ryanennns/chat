@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node --env-file=../.env --watch index.ts",
+    "dev": "node --env-file=../.env --watch --max-old-space-size=8192 index.ts",
     "start": "node index.ts"
   }
 }
