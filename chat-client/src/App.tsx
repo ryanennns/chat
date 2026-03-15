@@ -21,6 +21,7 @@ const MAX_MESSAGES = 100;
 function App() {
   const socketRef = useRef<WebSocket | null>(null);
   const messageIdRef = useRef(0);
+  const [chatRoomId, setChatRoomId] = useState("some-chat-id");
   const [serverUrl, setServerUrl] = useState("");
   const [status, setStatus] = useState("Idle");
   const [error, setError] = useState("");
@@ -73,7 +74,7 @@ function App() {
           JSON.stringify({
             type: "register",
             payload: {
-              chatId: "some-chat-id",
+              chatId: chatRoomId.trim() || "some-chat-id",
             },
           }),
         );
@@ -130,6 +131,14 @@ function App() {
       </button>
       <p>Status: {status}</p>
       {serverUrl && <p>Server URL: {serverUrl}</p>}
+      <div className="chat-box">
+        <input
+          type="text"
+          value={chatRoomId}
+          onChange={(event) => setChatRoomId(event.target.value)}
+          placeholder="Enter chat room ID"
+        />
+      </div>
       <div className="chat-box">
         <input
           type="text"
