@@ -1,3 +1,5 @@
+import { createClient } from "redis";
+
 export interface Server {
   id: string;
   url: string;
@@ -5,8 +7,42 @@ export interface Server {
 
 export const redisChatServersKey = "servers";
 export const redistributeChannel = "wss-redistribute";
-export const redistributeChannelKeyGenerator = (serverId: string) =>
+export const serversLoadKey = "servers:load";
+export const serversTimeoutKey = "servers:timeout";
+export const redisRedistributeChannelFactory = (serverId: string) =>
   `${serverId}-${redistributeChannel}`;
+export const redisServerKeyFactory = (serverId: string) => `server:${serverId}`;
+
+export const addServerToRedis = async (server: Server) => {
+  const redisClient = createClient();
+  await redisClient.connect();
+
+  await redisClient.hSet(redisServerKeyFactory(server.id), {
+    serverId: server.id,
+    url: server.url,
+  });
+  await redisClient.zAdd(serversLoadKey, {
+    score: 0,
+    value: server.id,
+  });
+  await redisClient.zAdd(serversTimeoutKey, {
+    score: Date.now(),
+    value: server.id,
+  });
+
+  redisClient.destroy();
+};
+
+export const removeServerFromRedis = async (serverId: string) => {
+  const redisClient = createClient();
+  await redisClient.connect();
+
+  await redisClient.del(redisServerKeyFactory(serverId));
+  await redisClient.zRem(serversLoadKey, serverId);
+  await redisClient.zRem(serversTimeoutKey, serverId);
+
+  redisClient.destroy();
+};
 
 export interface WebSocketMessage<T> {
   type: "chat" | "register" | "redistribute";

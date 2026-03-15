@@ -3,38 +3,33 @@ import { v4 } from "uuid";
 import WebSocket, { WebSocketServer } from "ws";
 import {
   debugLog,
-  redistributeChannel,
-  redisChatServersKey,
-  redistributeChannelKeyGenerator,
+  redisRedistributeChannelFactory,
+  serversLoadKey,
+  redisServerKeyFactory,
+  serversTimeoutKey,
+  addServerToRedis,
+  removeServerFromRedis,
 } from "@chat/shared";
 import type {
   ChatPayload,
   WebSocketMessage,
   RegistrationPayload,
-  Server,
   RedistributionPayload,
 } from "@chat/shared";
 
 const redisClient = createClient();
 await redisClient.connect();
 
-const getServerList = async (): Promise<Server[]> =>
-  JSON.parse((await redisClient.get(redisChatServersKey)) ?? "[]") ?? [];
-
-const removeSelfFromRedis = async (id: string) => {
-  await redisClient.set(
-    redisChatServersKey,
-    JSON.stringify(
-      (await getServerList()).filter((server: Server) => server.id !== id),
-    ),
-  );
+const removeSelfFromRedis = async () => {
+  void removeServerFromRedis(serverId);
 };
 
-const addSelfToRedis = async (id: string, url: string) => {
-  await redisClient.set(
-    redisChatServersKey,
-    JSON.stringify([...(await getServerList()), { id, url }]),
-  );
+const addSelfToRedis = async () => {
+  void addServerToRedis({
+    id: serverId,
+    url,
+  });
+
   debugLog("successfully added wss to redis!");
 };
 
@@ -59,10 +54,9 @@ const websocketServerFactory = (port: number): Promise<WebsocketServerInfo> => {
   });
 };
 let { wss, port, serverId } = await websocketServerFactory(8080);
-const liveConnectionsRedisKey = `${serverId}-connections`;
 const url = `ws://localhost:${port}`;
-debugLog(`started wss on port ${port}`);
-void addSelfToRedis(serverId, url).catch((e) => debugLog(`oh no ${String(e)}`));
+debugLog(`started ${serverId} on port ${port}`);
+void addSelfToRedis();
 const connections: Record<string, ClientSocket> = {};
 
 wss.on("connection", async (socket) => {
@@ -105,7 +99,7 @@ wss.on("connection", async (socket) => {
       subscriber.unsubscribe(socket.chatId);
     }
 
-    redisClient.decr(liveConnectionsRedisKey);
+    redisClient.zIncrBy(serversLoadKey, -1, serverId);
   });
 
   client.send(
@@ -116,14 +110,14 @@ wss.on("connection", async (socket) => {
   );
 
   connections[uuid] = client;
-  await redisClient.incr(liveConnectionsRedisKey);
+  await redisClient.zIncrBy(serversLoadKey, 1, serverId);
 });
 
 const subscriber = createClient();
 await subscriber.connect();
 
 await subscriber.subscribe(
-  redistributeChannelKeyGenerator(serverId),
+  redisRedistributeChannelFactory(serverId),
   (message: string) => {
     const payload: WebSocketMessage<RedistributionPayload> = {
       type: "redistribute",
@@ -141,12 +135,12 @@ await subscriber.subscribe(
   },
 );
 
-await subscriber.subscribe("ping", async () => {
-  if (!(await getServerList()).find((s) => s.id === serverId)) {
-    await addSelfToRedis(serverId, url);
-  }
-  void redisClient.publish("pong", serverId);
-});
+setInterval(() => {
+  void redisClient.zAdd(serversTimeoutKey, {
+    score: Date.now(),
+    value: serverId,
+  });
+}, 1000);
 
 const isSubscribedToChannel = (chatId: string) =>
   Object.values(connections).filter((socket) => socket.chatId === chatId)
@@ -206,7 +200,7 @@ const shutdown = async (signal = "unknown") => {
         resolve();
       }),
     );
-    await removeSelfFromRedis(serverId);
+    await removeSelfFromRedis();
     await subscriber.quit();
     await redisClient.quit();
   } catch {

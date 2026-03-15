@@ -3,8 +3,12 @@ import { createClient } from "redis";
 import {
   debugLog,
   redisChatServersKey,
-  redistributeChannelKeyGenerator,
+  serversLoadKey,
+  redisRedistributeChannelFactory,
   type Server,
+  serversTimeoutKey,
+  removeServerFromRedis,
+  redisServerKeyFactory,
 } from "@chat/shared";
 
 const app = express();
@@ -15,39 +19,33 @@ app.use(express.json());
 const redisClient = createClient();
 await redisClient.connect();
 
-const getServers = async (): Promise<Array<Server>> =>
-  JSON.parse((await redisClient.get(redisChatServersKey)) ?? "[]") || [];
-
-console.log(`${(await getServers()).length} active servers`);
-
 const serverLiveConnectionsKey = (server: Server) => `${server.id}-connections`;
 
 const getLiveConnections = async (server: Server): Promise<number> => {
   return Number((await redisClient.get(serverLiveConnectionsKey(server))) ?? 0);
 };
 
-app.get("/servers", async (req, res) => {
-  const servers = await getServers();
-
-  res.send(JSON.stringify(servers));
-});
-
 app.get("/servers/provision", async (req, res) => {
-  const servers = await getServers();
+  let id: string | null = (await redisClient.zRange(serversLoadKey, 0, 0))[0];
 
-  if (servers.length === 0) {
-    res.send(JSON.stringify({ error: "no servers" }));
+  if (!id) {
+    res.sendStatus(500);
+    return;
   }
 
-  let server = servers[0];
-  for (const s of servers) {
-    const liveConnections = await getLiveConnections(s);
-    if (liveConnections < (await getLiveConnections(server))) {
-      server = s;
-    }
+  let url = await redisClient.hGet(redisServerKeyFactory(id), "url");
+
+  if (!id || !url) {
+    res.sendStatus(404);
+    return;
   }
 
-  res.send(JSON.stringify(server));
+  res.send(
+    JSON.stringify({
+      id,
+      url,
+    }),
+  );
 });
 
 const shouldRedistribute = (
@@ -70,64 +68,83 @@ const shouldRedistribute = (
 };
 
 async function redistributeLoad() {
-  const servers = await getServers();
-  let activeClients = 0;
-  let activeServers = servers.length;
-  const serverIdToActiveConnectionsMap: Record<string, number> = {};
-  for (const server of servers) {
-    serverIdToActiveConnectionsMap[server.id] = Number(
-      (await redisClient.get(`${server.id}-connections`)) ?? 0,
-    );
-    activeClients += serverIdToActiveConnectionsMap[server.id];
-  }
+  const serverConnectionsMap = await redisClient.zRangeWithScores(
+    serversLoadKey,
+    0,
+    -1,
+  );
+  const numberOfClients = serverConnectionsMap.reduce(
+    (a, b) => Number(a) + Number(b.score),
+    0,
+  );
+  serverConnectionsMap.sort((a, b) => b.score - a.score);
+  console.log("number of servers: ", serverConnectionsMap);
+  console.log("number of clients: ", numberOfClients);
+  const optimal = numberOfClients / serverConnectionsMap.length;
+  console.log("optimal distribution: ", optimal);
 
-  const optimalDistribution = activeClients / activeServers;
-
-  for (const server of servers) {
+  for (const map of serverConnectionsMap) {
     if (
       shouldRedistribute(
-        serverIdToActiveConnectionsMap[server.id],
-        activeClients,
-        activeServers,
+        map.score,
+        numberOfClients,
+        serverConnectionsMap.length,
       )
     ) {
       await redisClient.publish(
-        redistributeChannelKeyGenerator(server.id),
-        JSON.stringify(
-          serverIdToActiveConnectionsMap[server.id] -
-            Math.floor(optimalDistribution),
-        ),
+        redisRedistributeChannelFactory(map.value),
+        JSON.stringify(map.score - Math.floor(optimal)),
       );
     }
   }
-  debugLog(serverIdToActiveConnectionsMap);
-  debugLog(`optimal distribution: ${activeClients / activeServers}`);
+
+  // const servers = await getServers();
+  // let activeClients = 0;
+  // let activeServers = servers.length;
+  // const serverIdToActiveConnectionsMap: Record<string, number> = {};
+  // for (const server of servers) {
+  //   serverIdToActiveConnectionsMap[server.id] = Number(
+  //     (await redisClient.get(`${server.id}-connections`)) ?? 0,
+  //   );
+  //   activeClients += serverIdToActiveConnectionsMap[server.id];
+  // }
+  //
+  // const optimalDistribution = activeClients / activeServers;
+  //
+  // for (const server of servers) {
+  //   if (
+  //     shouldRedistribute(
+  //       serverIdToActiveConnectionsMap[server.id],
+  //       activeClients,
+  //       activeServers,
+  //     )
+  //   ) {
+  //     await redisClient.publish(
+  //       redisRedistributeChannelFactory(server.id),
+  //       JSON.stringify(
+  //         serverIdToActiveConnectionsMap[server.id] -
+  //           Math.floor(optimalDistribution),
+  //       ),
+  //     );
+  //   }
+  // }
+  // debugLog(serverIdToActiveConnectionsMap);
+  // debugLog(`optimal distribution: ${activeClients / activeServers}`);
 }
 
-const serverHealthDictionary: Record<string, number> = {};
-(await getServers()).forEach(
-  (server) => (serverHealthDictionary[server.id] = new Date().getTime()),
-);
-let pingClient = createClient();
-await pingClient.connect();
-await pingClient.subscribe("pong", (message) => {
-  serverHealthDictionary[message] = new Date().getTime();
-});
 const healthChecks = async () => {
-  await redisClient.publish("ping", "");
-
-  const removeTheseServers: Array<string> = [];
-  for (const key in serverHealthDictionary) {
-    if (new Date().getTime() - serverHealthDictionary[key] > 1_500) {
-      removeTheseServers.push(key);
-      delete serverHealthDictionary[key];
-    }
-  }
-  console.log(`removing ${removeTheseServers.length} dead servers`);
-  const newServers = (await getServers()).filter(
-    (server) => !removeTheseServers.includes(server.id),
+  const cutoff = Date.now() - 3_000;
+  const deadServerIds = await redisClient.zRangeByScore(
+    serversTimeoutKey,
+    0,
+    cutoff,
   );
-  await redisClient.set(redisChatServersKey, JSON.stringify(newServers));
+
+  deadServerIds.forEach(
+    async (serverId) => await removeServerFromRedis(serverId),
+  );
+
+  console.log("dead servers", deadServerIds);
 };
 
 setInterval(async () => {
@@ -142,10 +159,8 @@ app.listen(port, () => {
 const shutdown = async () => {
   try {
     await redisClient.quit();
-    await pingClient.quit();
   } catch {
     redisClient.destroy();
-    pingClient.destroy();
   } finally {
     process.exit(0);
   }

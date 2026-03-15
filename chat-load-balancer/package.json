@@ -7,7 +7,7 @@
   "type": "module",
   "main": "index.ts",
   "scripts": {
-    "dev": "node --env-file=../.env --watch index.ts",
+    "dev": "node --env-file=../.env --max-old-space-size=8192 --watch index.ts",
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit"
