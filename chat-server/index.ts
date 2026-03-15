@@ -92,7 +92,7 @@ wss.on("connection", async (socket) => {
     delete connections[uuid];
 
     if (
-      Object.values(connections).filter((c) => c.chatId !== socket.chatId)
+      Object.values(connections).filter((c) => c.chatId === socket.chatId)
         .length < 1
     ) {
       debugLog(`unsubscribing from ${socket.chatId}`);
@@ -118,23 +118,23 @@ wss.on("connection", async (socket) => {
 
 const subscriber = createClient();
 await subscriber.connect();
-// await subscriber.subscribe("chat", (message) => {
-//   console.log(
-//     "redis --> wss:",
-//     message,
-//     `across ${Object.values(connections).length} socket(s)`,
-//   );
-//
-//   Object.values(connections).forEach((socket) => socket.send(message));
-// });
+
+const isSubscribedToChannel = (chatId: string) =>
+  Object.values(connections).filter((socket) => socket.chatId === chatId)
+    .length > 1;
 
 const registerSocket = async (
   registrationMessage: ClientMessage<RegistrationPayload>,
   socket: ClientSocket,
 ) => {
   socket.chatId = registrationMessage.payload.chatId;
-
   const chatChannel = registrationMessage.payload.chatId;
+
+  if (isSubscribedToChannel(chatChannel)) {
+    debugLog(`already subscribed to ${chatChannel}`);
+    return;
+  }
+
   debugLog(`subscribing to ${chatChannel}`);
   await subscriber.subscribe(chatChannel, (message: string) => {
     debugLog(`redis msg --> channel ${chatChannel} ${message}`);
