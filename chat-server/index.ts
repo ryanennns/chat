@@ -1,12 +1,7 @@
 import { createClient } from "redis";
 import { v4 } from "uuid";
 import WebSocket, { WebSocketServer } from "ws";
-import { redisChatServersKey } from "@chat/shared";
-
-interface Server {
-  id: string;
-  url: string;
-}
+import { redisChatServersKey, Server } from "@chat/shared";
 
 const redisClient = createClient();
 await redisClient.connect();
