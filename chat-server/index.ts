@@ -1,7 +1,11 @@
 import { createClient } from "redis";
 import { v4 } from "uuid";
 import WebSocket, { WebSocketServer } from "ws";
-import { debugLog, newWssChannel, redisChatServersKey } from "@chat/shared";
+import {
+  debugLog,
+  redistributeChannel,
+  redisChatServersKey,
+} from "@chat/shared";
 import type {
   ChatPayload,
   WebSocketMessage,
@@ -50,10 +54,7 @@ const websocketServerFactory = (port: number): Promise<WebsocketServerInfo> => {
 
     wss.on("error", () => resolve(websocketServerFactory(port + 1)));
 
-    wss.on("listening", async () => {
-      await redisClient.publish(newWssChannel, JSON.stringify({}));
-      resolve({ wss, port, serverId: v4() });
-    });
+    wss.on("listening", async () => resolve({ wss, port, serverId: v4() }));
   });
 };
 let { wss, port, serverId } = await websocketServerFactory(8080);
@@ -122,8 +123,8 @@ wss.on("connection", async (socket) => {
 const subscriber = createClient();
 await subscriber.connect();
 
-await subscriber.subscribe(newWssChannel, () => {
-  debugLog("new wss channel registered");
+await subscriber.subscribe(redistributeChannel, () => {
+  debugLog("server asked to redistribute");
   const payload: WebSocketMessage<RedistributionPayload> = {
     type: "redistribute",
     payload: {

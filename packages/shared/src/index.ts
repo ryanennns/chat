@@ -4,7 +4,7 @@ export interface Server {
 }
 
 export const redisChatServersKey = "servers";
-export const newWssChannel = "new-wss";
+export const redistributeChannel = "wss-redistribute";
 
 export interface WebSocketMessage<T> {
   type: "chat" | "register" | "redistribute";
