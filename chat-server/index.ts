@@ -1,10 +1,10 @@
 import { createClient } from "redis";
 import { v4 } from "uuid";
 import WebSocket, { WebSocketServer } from "ws";
-import {
+import { redisChatServersKey } from "@chat/shared";
+import type {
   ChatPayload,
   ClientMessage,
-  redisChatServersKey,
   RegistrationPayload,
   Server,
 } from "@chat/shared";
@@ -15,7 +15,7 @@ await redisClient.connect();
 const getServerList = async (): Promise<Server[]> =>
   JSON.parse((await redisClient.get(redisChatServersKey)) ?? "[]") ?? [];
 
-const removeServer = async (id: string) => {
+const removeSelfFromRedis = async (id: string) => {
   await redisClient.set(
     redisChatServersKey,
     JSON.stringify(
@@ -24,11 +24,12 @@ const removeServer = async (id: string) => {
   );
 };
 
-const addServer = async (id: string, url: string) => {
+const addSelfToRedis = async (id: string, url: string) => {
   await redisClient.set(
     redisChatServersKey,
     JSON.stringify([...(await getServerList()), { id, url }]),
   );
+  console.log("successfully added wss to redis!");
 };
 
 interface ClientSocket extends WebSocket {
@@ -55,7 +56,7 @@ let { wss, port, serverId } = await websocketServerFactory(8080);
 const liveConnectionsRedisKey = `${serverId}-connections`;
 const url = `ws://localhost:${port}`;
 console.log(`started wss on port ${port}`);
-void addServer(serverId, url).catch((e) => console.log("oh no", e));
+void addSelfToRedis(serverId, url).catch((e) => console.log("oh no", e));
 const connections: Record<string, ClientSocket> = {};
 
 wss.on("connection", async (socket) => {
@@ -76,7 +77,10 @@ wss.on("connection", async (socket) => {
         void publishChat(message as ClientMessage<ChatPayload>, client);
         break;
       case "register":
-        registerSocket(message as ClientMessage<RegistrationPayload>, client);
+        void registerSocket(
+          message as ClientMessage<RegistrationPayload>,
+          client,
+        );
         break;
       default:
         return;
@@ -98,9 +102,10 @@ wss.on("connection", async (socket) => {
   connections[uuid] = client;
   await redisClient.set(
     liveConnectionsRedisKey,
-    Object.keys(connections.length).length,
+    Object.keys(connections).length,
   );
-  console.log(Object.keys(connections));
+
+  console.log(Object.values(connections).map((c) => c.chatId));
 });
 
 const subscriber = createClient();
@@ -121,22 +126,21 @@ const registerSocket = async (
 ) => {
   socket.chatId = registrationMessage.payload.chatId;
 
-  await subscriber.subscribe(
-    `chat-${registrationMessage.payload.chatId}`,
-    (message: string) => {
-      Object.values(connections)
-        .filter(
-          (socket) => socket.chatId === registrationMessage.payload.chatId,
-        )
-        .forEach((socket) =>
-          socket.send(
-            JSON.stringify(
-              (JSON.parse(message) as ClientMessage<ChatPayload>).payload,
-            ),
-          ),
-        );
-    },
-  );
+  const chatChannel = registrationMessage.payload.chatId;
+  console.log(`subscribing to ${chatChannel}`);
+  await subscriber.subscribe(chatChannel, (message: string) => {
+    console.log(
+      `redis msg --> channel ${chatChannel}`,
+        message
+    );
+    Object.values(connections)
+      .filter((socket) => socket.chatId === registrationMessage.payload.chatId)
+      .forEach((socket) =>
+        socket.send(
+          message
+        ),
+      );
+  });
 };
 
 const publishChat = async (
@@ -147,8 +151,8 @@ const publishChat = async (
     return;
   }
 
-  console.log("wss --> redis:", JSON.parse(message.payload.message));
-  await redisClient.publish(socket.chatId, message.payload.message);
+  console.log("wss --> redis:", JSON.stringify(message.payload));
+  await redisClient.publish(socket.chatId, JSON.stringify(message.payload));
 };
 
 await subscriber.subscribe("wss-list.clear", async () => {
@@ -161,7 +165,7 @@ await subscriber.subscribe("wss-list.clear", async () => {
 const shutdown = async () => {
   try {
     console.log("SIGTERM received. Shutting down Redis subscriber.");
-    await removeServer(serverId);
+    await removeSelfFromRedis(serverId);
     await subscriber.quit();
     await redisClient.quit();
   } catch {

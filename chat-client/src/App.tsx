@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import "./App.css";
+import type { ClientMessage } from "@chat/shared";
 
 interface ProvisionedServer {
   id: string;
@@ -67,6 +68,15 @@ function App() {
 
       socket.addEventListener("open", () => {
         setStatus("Connected");
+
+        socket.send(
+          JSON.stringify({
+            type: "register",
+            payload: {
+              chatId: "some-chat-id",
+            },
+          }),
+        );
       });
 
       socket.addEventListener("close", () => {
@@ -74,6 +84,7 @@ function App() {
       });
 
       socket.addEventListener("message", (event) => {
+        console.log(event.data);
         pushMessage(String(event.data));
       });
 
@@ -88,7 +99,7 @@ function App() {
     }
   };
 
-  const sendMessage = () => {
+  const sendChatMessage = () => {
     const socket = socketRef.current;
 
     if (!socket || socket.readyState !== WebSocket.OPEN) {
@@ -100,8 +111,13 @@ function App() {
       return;
     }
 
-    const payload = JSON.stringify({ message: draft });
-    socket.send(payload);
+    const payload: ClientMessage<ChatMessage> = {
+      type: "chat",
+      payload: {
+        message: draft,
+      },
+    };
+    socket.send(JSON.stringify(payload));
     setDraft("");
     setError("");
   };
@@ -121,7 +137,7 @@ function App() {
           onChange={(event) => setDraft(event.target.value)}
           placeholder="Enter a message"
         />
-        <button onClick={sendMessage} type="button">
+        <button onClick={sendChatMessage} type="button">
           Send
         </button>
       </div>
