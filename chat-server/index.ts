@@ -1,7 +1,13 @@
 import { createClient } from "redis";
 import { v4 } from "uuid";
 import WebSocket, { WebSocketServer } from "ws";
-import { redisChatServersKey, Server } from "@chat/shared";
+import {
+  ChatPayload,
+  ClientMessage,
+  redisChatServersKey,
+  RegistrationPayload,
+  Server,
+} from "@chat/shared";
 
 const redisClient = createClient();
 await redisClient.connect();
@@ -27,13 +33,14 @@ const addServer = async (id: string, url: string) => {
 
 interface ClientSocket extends WebSocket {
   isAlive: boolean;
+  chatId: string | undefined;
 }
 
-type WebsocketServerInfo = {
+interface WebsocketServerInfo {
   wss: WebSocketServer;
   port: number;
   serverId: string;
-};
+}
 
 const websocketServerFactory = (port: number): Promise<WebsocketServerInfo> => {
   return new Promise<WebsocketServerInfo>((resolve) => {
@@ -62,9 +69,18 @@ wss.on("connection", async (socket) => {
   });
 
   client.on("message", async (rawData) => {
-    await redisClient.publish("chat", rawData.toString());
+    const message = JSON.parse(rawData.toString()) as ClientMessage<unknown>;
 
-    console.log("wss --> redis:", JSON.parse(rawData.toString()));
+    switch (message.type) {
+      case "chat":
+        void publishChat(message as ClientMessage<ChatPayload>, client);
+        break;
+      case "register":
+        registerSocket(message as ClientMessage<RegistrationPayload>, client);
+        break;
+      default:
+        return;
+    }
   });
 
   client.on("close", () => {
@@ -89,21 +105,57 @@ wss.on("connection", async (socket) => {
 
 const subscriber = createClient();
 await subscriber.connect();
-await subscriber.subscribe("chat", (message) => {
-  console.log(
-    "redis --> wss:",
-    message,
-    `across ${Object.values(connections).length} socket(s)`,
-  );
+// await subscriber.subscribe("chat", (message) => {
+//   console.log(
+//     "redis --> wss:",
+//     message,
+//     `across ${Object.values(connections).length} socket(s)`,
+//   );
+//
+//   Object.values(connections).forEach((socket) => socket.send(message));
+// });
 
-  Object.values(connections).forEach((socket) => socket.send(message));
-});
+const registerSocket = async (
+  registrationMessage: ClientMessage<RegistrationPayload>,
+  socket: ClientSocket,
+) => {
+  socket.chatId = registrationMessage.payload.chatId;
+
+  await subscriber.subscribe(
+    `chat-${registrationMessage.payload.chatId}`,
+    (message: string) => {
+      Object.values(connections)
+        .filter(
+          (socket) => socket.chatId === registrationMessage.payload.chatId,
+        )
+        .forEach((socket) =>
+          socket.send(
+            JSON.stringify(
+              (JSON.parse(message) as ClientMessage<ChatPayload>).payload,
+            ),
+          ),
+        );
+    },
+  );
+};
+
+const publishChat = async (
+  message: ClientMessage<ChatPayload>,
+  socket: ClientSocket,
+) => {
+  if (!socket.chatId) {
+    return;
+  }
+
+  console.log("wss --> redis:", JSON.parse(message.payload.message));
+  await redisClient.publish(socket.chatId, message.payload.message);
+};
 
 await subscriber.subscribe("wss-list.clear", async () => {
   // todo all of the servers race against one another, making them unable
   // to all write back into redis simultaneously...
-  console.log(`re-registering wss ${serverId} with redis...`);
-  await addServer(serverId, url);
+  // console.log(`re-registering wss ${serverId} with redis...`);
+  // await addServer(serverId, url);
 });
 
 const shutdown = async () => {
