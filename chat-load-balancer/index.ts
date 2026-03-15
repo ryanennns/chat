@@ -10,15 +10,10 @@ app.use(express.json());
 const client = createClient();
 await client.connect();
 
-const resetClientList = async () => {
-  const event = "wss-list.clear";
-  await client.del(redisChatServersKey);
-  await client.publish(event, "");
-};
-await resetClientList();
-
 const getServers = async (): Promise<Array<Server>> =>
   JSON.parse((await client.get(redisChatServersKey)) ?? "[]") || [];
+
+console.log(`${(await getServers()).length} active servers`);
 
 const serverLiveConnectionsKey = (server: Server) => `${server.id}-connections`;
 
@@ -40,18 +35,19 @@ app.get("/servers/provision", async (req, res) => {
   }
 
   let server = servers[0];
-  servers.forEach((s) => {
-    const liveConnections = getLiveConnections(s);
-    if (liveConnections < getLiveConnections(server)) {
+  for (const s of servers) {
+    const liveConnections = await getLiveConnections(s);
+    console.log(`server ${s.id} has ${liveConnections}`);
+    if (liveConnections < (await getLiveConnections(server))) {
       server = s;
     }
-  });
+  }
 
   res.send(JSON.stringify(server));
 });
 
 app.listen(port, () => {
-  console.log(`Example app listening on port ${port}`);
+  console.log(`listening on port ${port}`);
 });
 
 const shutdown = async () => {
