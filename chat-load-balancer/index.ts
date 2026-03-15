@@ -59,8 +59,8 @@ const shouldRedistribute = (
 
   console.log({
     distribution,
-    optimalDistribution,
-    ratio: (distribution / optimalDistribution).toFixed(3),
+    optimal: Number(optimalDistribution.toFixed(4)),
+    ratio: Number((distribution / optimalDistribution).toFixed(4)),
   });
   return (
     distribution > optimalDistribution &&
@@ -69,7 +69,7 @@ const shouldRedistribute = (
   );
 };
 
-setInterval(async () => {
+async function redistributeLoad() {
   const servers = await getServers();
   let activeClients = 0;
   let activeServers = servers.length;
@@ -91,7 +91,6 @@ setInterval(async () => {
         activeServers,
       )
     ) {
-      debugLog(`${server.id} needs client redistribution`);
       await redisClient.publish(
         redistributeChannelKeyGenerator(server.id),
         JSON.stringify(
@@ -101,9 +100,40 @@ setInterval(async () => {
       );
     }
   }
-
   debugLog(serverIdToActiveConnectionsMap);
   debugLog(`optimal distribution: ${activeClients / activeServers}`);
+}
+
+const servers = await getServers();
+const serverHealthDictionary: Record<string, number> = {};
+servers.forEach(
+  (server) => (serverHealthDictionary[server.id] = new Date().getTime()),
+);
+let pingClient = createClient();
+await pingClient.connect();
+await pingClient.subscribe("pong", (message) => {
+  serverHealthDictionary[message] = new Date().getTime();
+});
+const healthChecks = async () => {
+  await redisClient.publish("ping", "");
+
+  const removeTheseServers: Array<string> = [];
+  for (const key in serverHealthDictionary) {
+    if (new Date().getTime() - serverHealthDictionary[key] > 5000) {
+      removeTheseServers.push(key);
+      delete serverHealthDictionary[key];
+    }
+  }
+  console.log(`removing ${removeTheseServers.length} dead servers`);
+  const newServers = (await getServers()).filter(
+    (server) => !removeTheseServers.includes(server.id),
+  );
+  await redisClient.set(redisChatServersKey, JSON.stringify(newServers));
+};
+
+setInterval(async () => {
+  await redistributeLoad();
+  await healthChecks();
 }, 1000);
 
 app.listen(port, () => {
@@ -113,8 +143,10 @@ app.listen(port, () => {
 const shutdown = async () => {
   try {
     await redisClient.quit();
+    await pingClient.quit();
   } catch {
     redisClient.destroy();
+    pingClient.destroy();
   } finally {
     process.exit(0);
   }

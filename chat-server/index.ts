@@ -141,6 +141,11 @@ await subscriber.subscribe(
   },
 );
 
+await subscriber.subscribe("ping", () => {
+  console.log("received ping");
+  void redisClient.publish("pong", serverId);
+});
+
 const isSubscribedToChannel = (chatId: string) =>
   Object.values(connections).filter((socket) => socket.chatId === chatId)
     .length > 1;
