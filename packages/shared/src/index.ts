@@ -17,3 +17,13 @@ export interface ChatPayload {
 export interface RegistrationPayload {
   chatId: string;
 }
+
+declare const process: {
+  env: Record<string, string | undefined>;
+};
+
+export const debugLog = (message: string) => {
+  if (process.env.CHAT_DEBUG_LOG === "true") {
+    console.log(message);
+  }
+};

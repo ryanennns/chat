@@ -1,7 +1,7 @@
 import { createClient } from "redis";
 import { v4 } from "uuid";
 import WebSocket, { WebSocketServer } from "ws";
-import { redisChatServersKey } from "@chat/shared";
+import { debugLog, redisChatServersKey } from "@chat/shared";
 import type {
   ChatPayload,
   ClientMessage,
@@ -29,7 +29,7 @@ const addSelfToRedis = async (id: string, url: string) => {
     redisChatServersKey,
     JSON.stringify([...(await getServerList()), { id, url }]),
   );
-  console.log("successfully added wss to redis!");
+  debugLog("successfully added wss to redis!");
 };
 
 interface ClientSocket extends WebSocket {
@@ -55,8 +55,8 @@ const websocketServerFactory = (port: number): Promise<WebsocketServerInfo> => {
 let { wss, port, serverId } = await websocketServerFactory(8080);
 const liveConnectionsRedisKey = `${serverId}-connections`;
 const url = `ws://localhost:${port}`;
-console.log(`started wss on port ${port}`);
-void addSelfToRedis(serverId, url).catch((e) => console.log("oh no", e));
+debugLog(`started wss on port ${port}`);
+void addSelfToRedis(serverId, url).catch((e) => debugLog(`oh no ${String(e)}`));
 const connections: Record<string, ClientSocket> = {};
 
 wss.on("connection", async (socket) => {
@@ -89,7 +89,7 @@ wss.on("connection", async (socket) => {
 
   client.on("close", () => {
     delete connections[uuid];
-    console.log("closing");
+    debugLog("closing");
   });
 
   client.send(
@@ -105,7 +105,7 @@ wss.on("connection", async (socket) => {
     Object.keys(connections).length,
   );
 
-  console.log(Object.values(connections).map((c) => c.chatId));
+  debugLog(JSON.stringify(Object.values(connections).map((c) => c.chatId)));
 });
 
 const subscriber = createClient();
@@ -127,19 +127,12 @@ const registerSocket = async (
   socket.chatId = registrationMessage.payload.chatId;
 
   const chatChannel = registrationMessage.payload.chatId;
-  console.log(`subscribing to ${chatChannel}`);
+  debugLog(`subscribing to ${chatChannel}`);
   await subscriber.subscribe(chatChannel, (message: string) => {
-    console.log(
-      `redis msg --> channel ${chatChannel}`,
-        message
-    );
+    debugLog(`redis msg --> channel ${chatChannel} ${message}`);
     Object.values(connections)
       .filter((socket) => socket.chatId === registrationMessage.payload.chatId)
-      .forEach((socket) =>
-        socket.send(
-          message
-        ),
-      );
+      .forEach((socket) => socket.send(message));
   });
 };
 
@@ -151,7 +144,7 @@ const publishChat = async (
     return;
   }
 
-  console.log("wss --> redis:", JSON.stringify(message.payload));
+  debugLog(`wss --> redis: ${JSON.stringify(message.payload)}`);
   await redisClient.publish(socket.chatId, JSON.stringify(message.payload));
 };
 
@@ -164,7 +157,7 @@ await subscriber.subscribe("wss-list.clear", async () => {
 
 const shutdown = async () => {
   try {
-    console.log("SIGTERM received. Shutting down Redis subscriber.");
+    debugLog("SIGTERM received. Shutting down Redis subscriber.");
     await removeSelfFromRedis(serverId);
     await subscriber.quit();
     await redisClient.quit();
