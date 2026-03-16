@@ -1,7 +1,3 @@
-/**
- * this file is fully vibe coded
- */
-
 import blessed from "blessed";
 import { format } from "node:util";
 
@@ -11,34 +7,31 @@ interface ServerInfo {
   url: string;
 }
 
-interface RedistributeEvent {
-  overBy: number;
-  redistributeBy: number;
-  timestamp: string;
-}
-
-interface BroadcastEvent {
+interface BroadcastSnapshot {
   chatId: string;
   durationMs: number;
   recipients: number;
   timestamp: string;
 }
 
-interface UiState {
+interface RedistributeSnapshot {
+  overBy: number;
+  redistributeBy: number;
+  timestamp: string;
+}
+
+export interface TerminalUiSnapshot {
   activeChats: number;
   broadcastCount: number;
-  chats: Map<string, number>;
-  lastBroadcast: BroadcastEvent | null;
+  broadcastDurationTotalMs: number;
+  chats: Array<[string, number]>;
+  lastBroadcast: BroadcastSnapshot | null;
   lastLoopLagMs: number;
   lastPublishedChat: string | null;
-  lastRedistribute: RedistributeEvent | null;
+  lastRedistribute: RedistributeSnapshot | null;
   messageCount: number;
-  port: number | null;
-  serverId: string | null;
-  startedAt: number;
   status: string;
   totalConnections: number;
-  url: string | null;
 }
 
 const MAX_CHAT_LINES = 10;
@@ -64,26 +57,29 @@ const formatDuration = (startedAt: number) => {
 
 class ChatServerTerminalUi {
   private readonly enabled: boolean;
-  private readonly state: UiState = {
+  private readonly originalConsole = {
+    error: console.error.bind(console),
+    log: console.log.bind(console),
+    warn: console.warn.bind(console),
+  };
+  private readonly startedAt = Date.now();
+  private readonly serverInfo: ServerInfo = {
+    port: 0,
+    serverId: "pending",
+    url: "binding websocket server...",
+  };
+  private snapshot: TerminalUiSnapshot = {
     activeChats: 0,
     broadcastCount: 0,
-    chats: new Map(),
+    broadcastDurationTotalMs: 0,
+    chats: [],
     lastBroadcast: null,
     lastLoopLagMs: 0,
     lastPublishedChat: null,
     lastRedistribute: null,
     messageCount: 0,
-    port: null,
-    serverId: null,
-    startedAt: Date.now(),
     status: "starting",
     totalConnections: 0,
-    url: null,
-  };
-  private readonly originalConsole = {
-    error: console.error.bind(console),
-    log: console.log.bind(console),
-    warn: console.warn.bind(console),
   };
   private headerBox?: blessed.Widgets.BoxElement;
   private logBox?: blessed.Widgets.Log;
@@ -198,65 +194,14 @@ class ChatServerTerminalUi {
   }
 
   setServerInfo(info: ServerInfo) {
-    this.state.port = info.port;
-    this.state.serverId = info.serverId;
-    this.state.url = info.url;
-    this.state.status = "running";
+    this.serverInfo.port = info.port;
+    this.serverInfo.serverId = info.serverId;
+    this.serverInfo.url = info.url;
     this.render();
   }
 
-  setStatus(status: string) {
-    this.state.status = status;
-    this.render();
-  }
-
-  noteConnectionDelta(delta: number) {
-    this.state.totalConnections = Math.max(
-      0,
-      this.state.totalConnections + delta,
-    );
-    this.render();
-  }
-
-  setChatConnectionCount(chatId: string, count: number) {
-    if (count <= 0) {
-      this.state.chats.delete(chatId);
-    } else {
-      this.state.chats.set(chatId, count);
-    }
-
-    this.state.activeChats = this.state.chats.size;
-    this.render();
-  }
-
-  noteLoopLag(durationMs: number) {
-    this.state.lastLoopLagMs = durationMs;
-    this.render();
-  }
-
-  noteBroadcast(chatId: string, recipients: number, durationMs: number) {
-    this.state.broadcastCount += 1;
-    this.state.lastBroadcast = {
-      chatId,
-      durationMs,
-      recipients,
-      timestamp: timestamp(),
-    };
-    this.render();
-  }
-
-  notePublished(chatId: string) {
-    this.state.messageCount += 1;
-    this.state.lastPublishedChat = chatId;
-    this.render();
-  }
-
-  noteRedistribute(overBy: number, redistributeBy: number) {
-    this.state.lastRedistribute = {
-      overBy,
-      redistributeBy,
-      timestamp: timestamp(),
-    };
+  setSnapshot(snapshot: TerminalUiSnapshot) {
+    this.snapshot = snapshot;
     this.render();
   }
 
@@ -314,30 +259,39 @@ class ChatServerTerminalUi {
 
     this.headerBox.setContent(
       [
-        `{bold}chat-server{/bold}  {cyan-fg}${this.state.status}{/cyan-fg}`,
-        `server ${this.state.serverId ?? "pending"}  port ${this.state.port ?? "-"}  uptime ${formatDuration(this.state.startedAt)}`,
-        this.state.url ?? "binding websocket server...",
+        `{bold}chat-server{/bold}  {cyan-fg}${this.snapshot.status}{/cyan-fg}`,
+        `server ${this.serverInfo.serverId}  port ${this.serverInfo.port || "-"}  uptime ${formatDuration(this.startedAt)}`,
+        this.serverInfo.url,
       ].join("\n"),
     );
 
     this.metricsBox.setContent(
       [
-        `connections      ${this.state.totalConnections}`,
-        `active chats     ${this.state.activeChats}`,
-        `messages pub     ${this.state.messageCount}`,
-        `broadcasts       ${this.state.broadcastCount}`,
-        `loop lag         ${this.state.lastLoopLagMs.toFixed(2)} ms`,
-        `last publish     ${this.state.lastPublishedChat ?? "-"}`,
-        this.state.lastBroadcast === null
+        `connections      ${this.snapshot.totalConnections}`,
+        `active chats     ${this.snapshot.activeChats}`,
+        `messages pub     ${this.snapshot.messageCount}`,
+        `broadcasts       ${this.snapshot.broadcastCount}`,
+        `fanout total     ${this.snapshot.broadcastDurationTotalMs.toFixed(2)} ms`,
+        `fanout avg       ${
+          this.snapshot.broadcastCount === 0
+            ? "0.00"
+            : (
+                this.snapshot.broadcastDurationTotalMs /
+                this.snapshot.broadcastCount
+              ).toFixed(2)
+        } ms`,
+        `loop lag         ${this.snapshot.lastLoopLagMs.toFixed(2)} ms`,
+        `last publish     ${this.snapshot.lastPublishedChat ?? "-"}`,
+        this.snapshot.lastBroadcast === null
           ? "last broadcast   -"
-          : `last broadcast   ${this.state.lastBroadcast.durationMs.toFixed(2)} ms to ${this.state.lastBroadcast.recipients} (${this.state.lastBroadcast.chatId})`,
-        this.state.lastRedistribute === null
+          : `last broadcast   ${this.snapshot.lastBroadcast.durationMs.toFixed(2)} ms to ${this.snapshot.lastBroadcast.recipients} (${this.snapshot.lastBroadcast.chatId})`,
+        this.snapshot.lastRedistribute === null
           ? "redistribute    -"
-          : `redistribute    ${this.state.lastRedistribute.redistributeBy} of ${this.state.lastRedistribute.overBy} at ${this.state.lastRedistribute.timestamp}`,
+          : `redistribute    ${this.snapshot.lastRedistribute.redistributeBy} of ${this.snapshot.lastRedistribute.overBy} at ${this.snapshot.lastRedistribute.timestamp}`,
       ].join("\n"),
     );
 
-    const chatLines = [...this.state.chats.entries()]
+    const chatLines = [...this.snapshot.chats]
       .sort(
         (left, right) => right[1] - left[1] || left[0].localeCompare(right[0]),
       )

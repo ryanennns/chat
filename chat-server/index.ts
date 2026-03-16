@@ -15,7 +15,6 @@ import {
   serversLoadKey,
   serversTimeoutKey,
 } from "@chat/shared";
-import { terminalUi } from "./terminal-ui.js";
 
 const redisClient = createClient();
 await redisClient.connect();
@@ -56,7 +55,6 @@ const websocketServerFactory = (port: number): Promise<WebsocketServerInfo> => {
 };
 let { wss, port, serverId } = await websocketServerFactory(8080);
 const url = `ws://localhost:${port}`;
-terminalUi.setServerInfo({ port, serverId, url });
 debugLog(`started ${serverId} on port ${port}`);
 void addSelfToRedis();
 const connections: Record<string, Set<ClientSocket>> = {};
@@ -94,10 +92,6 @@ wss.on("connection", async (socket) => {
     if (chatId) {
       connections[chatId]?.delete(client);
     }
-    terminalUi.noteConnectionDelta(-1);
-    if (chatId) {
-      terminalUi.setChatConnectionCount(chatId, connections[chatId]?.size ?? 0);
-    }
     if (chatId && connections[chatId]?.size < 1) {
       debugLog(`unsubscribing from ${chatId}`);
       subscriber.unsubscribe(chatId);
@@ -114,7 +108,6 @@ wss.on("connection", async (socket) => {
   );
 
   await redisClient.zIncrBy(serversLoadKey, 1, serverId);
-  terminalUi.noteConnectionDelta(1);
 });
 
 const subscriber = createClient();
@@ -130,7 +123,6 @@ await subscriber.subscribe(
       },
     };
     const redistributeBy = Math.floor(Math.max(Number(message) * 0.25, 1));
-    terminalUi.noteRedistribute(Number(message), redistributeBy);
     debugLog(`over by ${message}; nuking ${redistributeBy} clients`);
     // get random connections
     Object.values(connections)
@@ -142,8 +134,8 @@ await subscriber.subscribe(
   },
 );
 
-setInterval(() => {
-  void redisClient.zAdd(serversTimeoutKey, {
+setInterval(async () => {
+  await redisClient.zAdd(serversTimeoutKey, {
     score: Date.now(),
     value: serverId,
   });
@@ -152,9 +144,7 @@ setInterval(() => {
 setInterval(() => {
   const start = performance.now();
   setImmediate(() => {
-    const loopLagMs = performance.now() - start;
-    terminalUi.noteLoopLag(loopLagMs);
-    console.log("loop lag:", loopLagMs);
+    console.log(performance.now() - start);
   });
 }, 1000);
 
@@ -167,12 +157,10 @@ const registerSocket = async (
   if (connections[chatChannel] === undefined) {
     debugLog(`subscribing to ${chatChannel}`);
     await subscriber.subscribe(chatChannel, (message: string) => {
-      const t = performance.now();
       const sockets = connections[registrationMessage.payload.chatId];
-      sockets.forEach((socket) => socket.send(message));
-      const durationMs = performance.now() - t;
-      terminalUi.noteBroadcast(chatChannel, sockets.size, durationMs);
-      console.log("broadcast time:", durationMs);
+      sockets.forEach((socket) => {
+        socket.send(message);
+      });
     });
   }
 
@@ -183,12 +171,7 @@ const registerSocket = async (
       ? new Set()
       : connections[socket.chatId];
 
-  console.log(`adding a chatter to bucket ${chatChannel}`);
-  console.log(`before: ${connections[chatChannel].size}`);
-
   connections[chatChannel].add(socket);
-  console.log(`after: ${connections[chatChannel].size}`);
-  terminalUi.setChatConnectionCount(chatChannel, connections[chatChannel].size);
 };
 
 const publishChat = async (
@@ -200,7 +183,6 @@ const publishChat = async (
   }
 
   // debugLog(`wss --> redis: ${JSON.stringify(message.payload)}`);
-  terminalUi.notePublished(socket.chatId);
   await redisClient.publish(socket.chatId, JSON.stringify(message.payload));
 };
 
@@ -214,7 +196,6 @@ const shutdown = async (signal = "unknown") => {
   isShuttingDown = true;
 
   try {
-    terminalUi.setStatus(`shutting down (${signal})`);
     debugLog(`${signal} received. Shutting down websocket server.`);
     wss.clients.forEach((client) => client.close());
     await new Promise<void>((resolve, reject) =>
@@ -234,7 +215,6 @@ const shutdown = async (signal = "unknown") => {
     subscriber.destroy();
     redisClient.destroy();
   } finally {
-    terminalUi.destroy();
     process.exit(0);
   }
 };
