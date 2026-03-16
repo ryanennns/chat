@@ -1,10 +1,12 @@
 {
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "dev": "node --env-file=../.env --max-old-space-size=8192 --watch index.ts"
+    "dev": "tsx watch --env-file=../.env index.ts"
   },
   "dependencies": {
     "@chat/shared": "file:../packages/shared",
+    "@types/blessed": "^0.1.27",
+    "blessed": "^0.1.81",
     "prettier": "^3.8.1",
     "redis": "^5.11.0",
     "uuid": "^13.0.0",
@@ -14,6 +16,7 @@
   "devDependencies": {
     "@types/node": "^25.5.0",
     "@types/ws": "^8.18.1",
+    "tsx": "^4.21.0",
     "typescript": "^5.9.3"
   }
 }
