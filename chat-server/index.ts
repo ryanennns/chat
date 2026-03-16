@@ -138,6 +138,13 @@ setInterval(() => {
   });
 }, 1000);
 
+setInterval(() => {
+  const start = performance.now();
+  setImmediate(() => {
+    console.log("loop lag:", performance.now() - start);
+  });
+}, 1000);
+
 const registerSocket = async (
   registrationMessage: WebSocketMessage<RegistrationPayload>,
   socket: ClientSocket,
@@ -147,10 +154,11 @@ const registerSocket = async (
   if (connections[chatChannel] === undefined) {
     debugLog(`subscribing to ${chatChannel}`);
     await subscriber.subscribe(chatChannel, (message: string) => {
-      // debugLog(`redis msg --> channel ${chatChannel} ${message}`);
+      const t = performance.now();
       connections[registrationMessage.payload.chatId].forEach((socket) =>
         socket.send(message),
       );
+      console.log("broadcast time:", performance.now() - t);
     });
   }
 
