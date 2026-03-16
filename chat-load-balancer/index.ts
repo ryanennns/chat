@@ -46,11 +46,6 @@ const shouldRedistribute = (
 ) => {
   const optimalDistribution = totalClients / totalServers;
 
-  // console.log({
-  //   distribution,
-  //   optimal: Number(optimalDistribution.toFixed(4)),
-  //   ratio: Number((distribution / optimalDistribution).toFixed(4)),
-  // });
   return (
     distribution > optimalDistribution &&
     distribution - optimalDistribution > 1 &&
@@ -90,8 +85,9 @@ async function redistributeLoad() {
   }
 }
 
+const wssServerTimeoutMs = 1_200;
 const healthChecks = async () => {
-  const cutoff = Date.now() - 3_000;
+  const cutoff = Date.now() - wssServerTimeoutMs;
   const deadServerIds = await redisClient.zRangeByScore(
     serversTimeoutKey,
     0,

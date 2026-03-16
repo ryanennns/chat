@@ -120,24 +120,12 @@ wss.on("connection", async (socket) => {
 const subscriber = createClient();
 await subscriber.connect();
 
+let redistributeBy = 0;
 await subscriber.subscribe(
   redisRedistributeChannelFactory(serverId),
   (message: string) => {
-    const payload: WebSocketMessage<RedistributionPayload> = {
-      type: "redistribute",
-      payload: {
-        reason: "new-wss",
-      },
-    };
-    const redistributeBy = Math.floor(Math.max(Number(message) * 0.25, 1));
+    redistributeBy = Math.floor(Math.max(Number(message) * 0.33, 1));
     debugLog(`over by ${message}; nuking ${redistributeBy} clients`);
-    // get random connections
-    Object.values(rooms)
-      .map((c) => [...c])
-      .flat()
-      .sort(() => 0.5 - Math.random())
-      .slice(0, redistributeBy)
-      .forEach((socket) => socket.send(JSON.stringify(payload)));
   },
 );
 
@@ -146,6 +134,12 @@ setInterval(async () => {
     score: Date.now(),
     value: serverId,
   });
+  if (((await redisClient.zScore(serversLoadKey, serverId)) ?? 0) < 0) {
+    await redisClient.zAdd(serversLoadKey, {
+      score: 0,
+      value: serverId,
+    });
+  }
 }, 1000);
 
 setInterval(() => {
@@ -155,6 +149,12 @@ setInterval(() => {
   });
 }, 1000);
 
+const redistributePayload: WebSocketMessage<RedistributionPayload> = {
+  type: "redistribute",
+  payload: {
+    reason: "new-wss",
+  },
+};
 const flush = (room: Room) => {
   if (room.queue.length < 1) {
     room.running = false;
@@ -163,22 +163,30 @@ const flush = (room: Room) => {
   }
 
   const message = room.queue.shift() as string;
-  const sockets = Array.from(room.clients);
+  const sockets = room.clients.values();
 
   let i = 0;
 
   const batch = () => {
-    const end = Math.min(i + 50, sockets.length);
+    const end = Math.min(i + 10, room.clients.size);
 
     for (; i < end; i++) {
-      const socket = sockets[i];
+      const socket = sockets.next().value;
+      if (!socket) {
+        return
+      }
 
       if (socket.readyState === WebSocket.OPEN) {
-        socket.send(message);
+        if (redistributeBy > 0) {
+          socket.send(JSON.stringify(redistributePayload));
+          redistributeBy--;
+        } else {
+          socket.send(message);
+        }
       }
     }
 
-    i < sockets.length ? setImmediate(batch) : setImmediate(() => flush(room));
+    i < room.clients.size ? setImmediate(batch) : setImmediate(() => flush(room));
   };
 
   batch();
