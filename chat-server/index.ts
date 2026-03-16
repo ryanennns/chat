@@ -57,7 +57,13 @@ let { wss, port, serverId } = await websocketServerFactory(8080);
 const url = `ws://localhost:${port}`;
 debugLog(`started ${serverId} on port ${port}`);
 void addSelfToRedis();
-const connections: Record<string, Set<ClientSocket>> = {};
+
+interface Room {
+  clients: Set<ClientSocket>;
+  queue: Array<string>;
+  running: boolean;
+}
+const connections: Map<string, Room> = new Map();
 
 wss.on("connection", async (socket) => {
   const client = socket as ClientSocket;
@@ -90,9 +96,9 @@ wss.on("connection", async (socket) => {
   client.on("close", () => {
     const chatId = client.chatId;
     if (chatId) {
-      connections[chatId]?.delete(client);
+      connections.get(chatId)?.clients.delete(client);
     }
-    if (chatId && connections[chatId]?.size < 1) {
+    if (chatId && (connections.get(chatId)?.clients.size ?? 0) < 1) {
       debugLog(`unsubscribing from ${chatId}`);
       subscriber.unsubscribe(chatId);
     }
@@ -148,30 +154,70 @@ setInterval(() => {
   });
 }, 1000);
 
+const flush = (room: Room) => {
+  if (room.queue.length < 1) {
+    room.running = false;
+
+    return;
+  }
+
+  const message = room.queue.shift() as string;
+  const sockets = Array.from(room.clients);
+
+  let i = 0;
+
+  const batch = () => {
+    const end = Math.min(i + 50, sockets.length);
+
+    for (; i < end; i++) {
+      const socket = sockets[i];
+
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.send(message);
+      }
+    }
+  };
+
+  i < sockets.length ? setImmediate(batch) : setImmediate(() => flush(room));
+
+  batch();
+};
+
 const registerSocket = async (
   registrationMessage: WebSocketMessage<RegistrationPayload>,
   socket: ClientSocket,
 ) => {
   const chatChannel = registrationMessage.payload.chatId;
 
-  if (connections[chatChannel] === undefined) {
+  if (connections.get(chatChannel) === undefined) {
     debugLog(`subscribing to ${chatChannel}`);
     await subscriber.subscribe(chatChannel, (message: string) => {
-      const sockets = connections[registrationMessage.payload.chatId];
-      sockets.forEach((socket) => {
-        socket.send(message);
-      });
+      const room = connections.get(registrationMessage.payload.chatId);
+
+      if (room === undefined) {
+        debugLog(`failed to find room ${registrationMessage.payload.chatId}!`);
+
+        return;
+      }
+
+      room.queue.push(message);
+      if (!room.running) {
+        flush(room);
+      }
     });
   }
 
   socket.chatId = registrationMessage.payload.chatId;
 
-  connections[socket.chatId] =
-    connections[socket.chatId] === undefined
-      ? new Set()
-      : connections[socket.chatId];
+  if (connections.get(chatChannel) === undefined) {
+    connections.set(chatChannel, {
+      clients: new Set(),
+      queue: [],
+      running: false,
+    });
+  }
 
-  connections[chatChannel].add(socket);
+  connections.get(chatChannel)?.clients.add(socket);
 };
 
 const publishChat = async (
