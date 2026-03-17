@@ -16,8 +16,21 @@ app.use(express.json());
 const redisClient = createClient();
 await redisClient.connect();
 
+const blacklist = new Set<string>();
 app.get("/servers/provision", async (req, res) => {
-  let id: string | null = (await redisClient.zRange(serversLoadKey, 0, 0))[0];
+  let i = 0;
+  let id: string | null = null;
+
+  while (i < 5) {
+    id = (await redisClient.zRange(serversLoadKey, 0, 0))[0];
+
+    if (!id || blacklist.has(id)) {
+      i++;
+      continue;
+    }
+
+    break;
+  }
 
   if (!id) {
     res.sendStatus(500);
@@ -66,6 +79,7 @@ async function redistributeLoad() {
   serverConnectionsMap.sort((a, b) => b.score - a.score);
   console.log("number of servers: ", serverConnectionsMap);
   console.log("number of clients: ", numberOfClients);
+  console.log("server blacklist: ", blacklist);
   const optimal = numberOfClients / serverConnectionsMap.length;
   console.log("optimal distribution: ", optimal);
 
@@ -95,7 +109,7 @@ const healthChecks = async () => {
   );
 
   deadServerIds.forEach(
-    async (serverId) => await removeServerFromRedis(serverId),
+    serverId => blacklist.add(serverId)
   );
 
   // console.log("dead servers", deadServerIds);
