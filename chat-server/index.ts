@@ -142,10 +142,16 @@ setInterval(async () => {
   }
 }, 1000);
 
+const lastFivePerformanceNumbers = new Array(5).fill(0);
 setInterval(() => {
   const start = performance.now();
   setImmediate(() => {
-    console.log(performance.now() - start);
+    const timeout = performance.now() - start;
+    lastFivePerformanceNumbers.shift();
+    lastFivePerformanceNumbers.push(performance.now() - start);
+    if (timeout > 10) {
+      console.log("event loop is blocking! timeout: ", timeout);
+    }
   });
 }, 1000);
 

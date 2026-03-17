@@ -16,7 +16,7 @@ app.use(express.json());
 const redisClient = createClient();
 await redisClient.connect();
 
-const blacklist = new Set<string>();
+const blacklist = new Map<string, number>();
 app.get("/servers/provision", async (req, res) => {
   let i = 0;
   let id: string | null = null;
@@ -102,15 +102,24 @@ async function redistributeLoad() {
 const wssServerTimeoutMs = 1_200;
 const healthChecks = async () => {
   const cutoff = Date.now() - wssServerTimeoutMs;
-  const deadServerIds = await redisClient.zRangeByScore(
+  const timedOutServers = await redisClient.zRangeByScore(
     serversTimeoutKey,
     0,
     cutoff,
   );
 
-  deadServerIds.forEach(
-    serverId => blacklist.add(serverId)
+  timedOutServers.forEach(
+    (serverId) =>
+      blacklist.get(serverId) ?? blacklist.set(serverId, Date.now()),
   );
+
+  blacklist.forEach((timeout, server) => {
+    if (Date.now() - timeout > 10_000) {
+      console.log("removing server from redis list: ", server);
+      void removeServerFromRedis(server);
+      blacklist.delete(server);
+    }
+  });
 
   // console.log("dead servers", deadServerIds);
 };
