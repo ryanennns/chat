@@ -173,7 +173,7 @@ const flush = (room: Room) => {
     for (; i < end; i++) {
       const socket = sockets.next().value;
       if (!socket) {
-        return
+        return;
       }
 
       if (socket.readyState === WebSocket.OPEN) {
@@ -186,7 +186,9 @@ const flush = (room: Room) => {
       }
     }
 
-    i < room.clients.size ? setImmediate(batch) : setImmediate(() => flush(room));
+    i < room.clients.size
+      ? setImmediate(batch)
+      : setImmediate(() => flush(room));
   };
 
   batch();
