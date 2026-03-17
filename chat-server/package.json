@@ -1,7 +1,8 @@
 {
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "dev": "tsx watch --env-file=../.env index.ts"
+    "dev": "tsx watch --env-file=../.env index.ts",
+    "start": "node --env-file=../.env dist/index.js"
   },
   "dependencies": {
     "@chat/shared": "file:../packages/shared",

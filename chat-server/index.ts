@@ -16,6 +16,11 @@ import {
   serversTimeoutKey,
 } from "@chat/shared";
 
+const REQUEST_HELP_EVERY_MS = 10_000;
+const EVENTLOOP_TIMEOUT_THRESHOLD_MS = 15.0;
+const REDISTRIBUTE_BY_FACTOR = 0.33;
+const MESSAGE_BATCH_SIZE = 10;
+
 const redisClient = createClient();
 await redisClient.connect();
 
@@ -124,7 +129,9 @@ let redistributeBy = 0;
 await subscriber.subscribe(
   redisRedistributeChannelFactory(serverId),
   (message: string) => {
-    redistributeBy = Math.floor(Math.max(Number(message) * 0.33, 1));
+    redistributeBy = Math.floor(
+      Math.max(Number(message) * REDISTRIBUTE_BY_FACTOR, 1),
+    );
     debugLog(`over by ${message}; nuking ${redistributeBy} clients`);
   },
 );
@@ -142,16 +149,30 @@ setInterval(async () => {
   }
 }, 1000);
 
+let lastRequestedHelp = 0;
 const lastFivePerformanceNumbers = new Array(5).fill(0);
+const shouldPanic = () => {
+  return (
+    lastFivePerformanceNumbers.reduce((a, b) => a + b) /
+      lastFivePerformanceNumbers.length >
+      EVENTLOOP_TIMEOUT_THRESHOLD_MS &&
+    Date.now() - lastRequestedHelp > REQUEST_HELP_EVERY_MS
+  );
+};
+const updatePerformanceNumbers = async (timeout: number) => {
+  lastFivePerformanceNumbers.shift();
+  lastFivePerformanceNumbers.push(timeout);
+  if (shouldPanic()) {
+    lastRequestedHelp = Date.now();
+    debugLog("event loop is blocking! timeout: " + timeout);
+    void redisClient.publish("panic", serverId);
+  }
+};
 setInterval(() => {
   const start = performance.now();
   setImmediate(() => {
     const timeout = performance.now() - start;
-    lastFivePerformanceNumbers.shift();
-    lastFivePerformanceNumbers.push(performance.now() - start);
-    if (timeout > 10) {
-      console.log("event loop is blocking! timeout: ", timeout);
-    }
+    void updatePerformanceNumbers(timeout);
   });
 }, 1000);
 
@@ -161,7 +182,8 @@ const redistributePayload: WebSocketMessage<RedistributionPayload> = {
     reason: "new-wss",
   },
 };
-const flush = (room: Room) => {
+
+const flushRoom = (room: Room) => {
   if (room.queue.length < 1) {
     room.running = false;
 
@@ -174,7 +196,7 @@ const flush = (room: Room) => {
   let i = 0;
 
   const batch = () => {
-    const end = Math.min(i + 10, room.clients.size);
+    const end = Math.min(i + MESSAGE_BATCH_SIZE, room.clients.size);
 
     for (; i < end; i++) {
       const socket = sockets.next().value;
@@ -194,7 +216,7 @@ const flush = (room: Room) => {
 
     i < room.clients.size
       ? setImmediate(batch)
-      : setImmediate(() => flush(room));
+      : setImmediate(() => flushRoom(room));
   };
 
   batch();
@@ -226,7 +248,7 @@ const registerSocket = async (
 
       room.queue.push(message);
       if (!room.running) {
-        flush(room);
+        flushRoom(room);
       }
     });
   }
@@ -248,7 +270,6 @@ const publishChat = async (
 };
 
 let isShuttingDown = false;
-
 const shutdown = async (signal = "unknown") => {
   if (isShuttingDown) {
     return;
