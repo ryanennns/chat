@@ -21,7 +21,7 @@ const MAX_MESSAGES = 100;
 function App() {
   const socketRef = useRef<WebSocket | null>(null);
   const messageIdRef = useRef(0);
-  const [chatRoomId, setChatRoomId] = useState("some-chat-id");
+  const [chatRoomId, setChatRoomId] = useState("chat-room-1");
   const [serverUrl, setServerUrl] = useState("");
   const [status, setStatus] = useState("Idle");
   const [error, setError] = useState("");
@@ -74,7 +74,7 @@ function App() {
           JSON.stringify({
             type: "register",
             payload: {
-              chatId: chatRoomId.trim() || "some-chat-id",
+              chatId: chatRoomId.trim() || "chat-room-1",
             },
           }),
         );

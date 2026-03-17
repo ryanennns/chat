@@ -50,7 +50,7 @@
 .messages {
   display: grid;
   gap: 0.2rem;
-  width: min(100%, 48rem);
+  width: min(100%, 59.5rem);
   padding: 0.5rem;
   border: 1px solid #333;
   background: #181818;
