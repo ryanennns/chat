@@ -2,42 +2,43 @@ import { redisServerKeyFactory, serversLoadKey } from "@chat/shared";
 import { redisClient, runtimeState, serverBlacklist } from "../utils.ts";
 import express from "express";
 
-export const provisionServer = () => {
-  return async (req: express.Request, res: express.Response) => {
-    let i = 0;
-    let id: string | null = null;
+export const provisionServer = async (
+  req: express.Request,
+  res: express.Response,
+) => {
+  let i = 0;
+  let id: string | null = null;
 
-    while (i < 5) {
-      id = (await redisClient.zRange(serversLoadKey, 0, 0))[0];
+  while (i < 5) {
+    id = (await redisClient.zRange(serversLoadKey, 0, 0))[0];
 
-      if (!id || serverBlacklist.has(id)) {
-        i++;
-        continue;
-      }
-
-      break;
+    if (!id || serverBlacklist.has(id)) {
+      i++;
+      continue;
     }
 
-    if (!id) {
-      res.sendStatus(500);
-      return;
-    }
+    break;
+  }
 
-    let url = await redisClient.hGet(redisServerKeyFactory(id), "url");
+  if (!id) {
+    res.sendStatus(500);
+    return;
+  }
 
-    if (!id || !url) {
-      res.sendStatus(404);
-      return;
-    }
+  let url = await redisClient.hGet(redisServerKeyFactory(id), "url");
 
-    res.send(
-      JSON.stringify({
-        id,
-        url,
-      }),
-    );
+  if (!id || !url) {
+    res.sendStatus(404);
+    return;
+  }
 
-    runtimeState.provisionCount++;
-    runtimeState.lastProvisionedServer = id;
-  };
+  res.send(
+    JSON.stringify({
+      id,
+      url,
+    }),
+  );
+
+  runtimeState.provisionCount++;
+  runtimeState.lastProvisionedServer = id;
 };

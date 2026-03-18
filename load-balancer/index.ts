@@ -13,6 +13,7 @@ import {
   serverBlacklist,
   shutdown,
 } from "./src/utils.ts";
+import { createServer } from "./src/controllers/servers.create.ts";
 
 const app = express();
 const port = 3000;
@@ -21,6 +22,7 @@ terminalUi.setRuntimeInfo({ port, serviceName: "load-balancer" });
 app.use(express.json());
 
 app.get("/servers/provision", provisionServer);
+app.post("/servers/create", createServer);
 
 app.listen(port, () => {
   console.log(`listening on port ${port}`);
