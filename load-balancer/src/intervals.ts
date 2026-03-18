@@ -9,6 +9,12 @@ import {
 const wssServerTimeoutMs: number = Number(
   process.env.SERVER_TIMEOUT_MS ?? 1_000,
 );
+const redistributeThreshold = Number(
+  process.env.REDISTRIBUTE_THRESHOLD ?? 0.95,
+);
+const wssBlacklistRemovalTimeoutMs = Number(
+  process.env.BLACKLIST_REMOVAL_TIMEOUT_MS ?? 10_000,
+);
 
 const shouldRedistribute = (
   distribution: number,
@@ -20,7 +26,7 @@ const shouldRedistribute = (
   return (
     distribution > optimalDistribution &&
     distribution - optimalDistribution > 1 &&
-    distribution / optimalDistribution > 0.95
+    distribution / optimalDistribution > redistributeThreshold
   );
 };
 
@@ -85,7 +91,7 @@ const healthChecks = async () => {
   );
 
   serverBlacklist.forEach((timeout, server) => {
-    if (Date.now() - timeout > 10_000) {
+    if (Date.now() - timeout > wssBlacklistRemovalTimeoutMs) {
       void removeServerFromRedis(server);
       serverBlacklist.delete(server);
       runtimeState.lastRemovedServer = server;
