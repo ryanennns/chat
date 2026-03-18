@@ -44,4 +44,4 @@ setInterval(() => {
     status: "running",
     ...runtimeState,
   });
-});
+}, 1000);
