@@ -5,6 +5,7 @@ import {
   ChatPayload,
   redisServerKeyFactory,
   RegistrationPayload,
+  serversChatsCountKey,
   WebSocketMessage,
 } from "@chat/shared";
 import {
@@ -12,7 +13,7 @@ import {
   debugLog,
   redisRedistributeChannelFactory,
   removeServerFromRedis,
-  serversLoadKey,
+  serversClientCountKey,
   serversTimeoutKey,
 } from "@chat/shared";
 import {
@@ -26,6 +27,15 @@ import {
 
 const redisClient = createClient();
 await redisClient.connect();
+
+const incrementChatCount = () =>
+  void redisClient.zIncrBy(serversChatsCountKey, 1, serverId);
+const decrementChatCount = () =>
+  void redisClient.zIncrBy(serversChatsCountKey, -1, serverId);
+const incrementClientCount = () =>
+  void redisClient.zIncrBy(serversClientCountKey, 1, serverId);
+const decrementClientCount = () =>
+  void redisClient.zIncrBy(serversClientCountKey, -1, serverId);
 
 const removeSelfFromRedis = async () => {
   void removeServerFromRedis(serverId);
@@ -95,7 +105,7 @@ wss.on("connection", async (socket) => {
     }
   });
 
-  client.on("close", () => {
+  client.on("close", async () => {
     const chatId = client.chatId;
     if (chatId) {
       rooms.get(chatId)?.clients.delete(client);
@@ -103,10 +113,11 @@ wss.on("connection", async (socket) => {
     if (chatId && (rooms.get(chatId)?.clients.size ?? 0) < 1) {
       debugLog(`unsubscribing from ${chatId}`);
       rooms.delete(chatId);
-      subscriber.unsubscribe(chatId);
+      await subscriber.unsubscribe(chatId);
+      decrementChatCount();
     }
 
-    redisClient.zIncrBy(serversLoadKey, -1, serverId);
+    decrementClientCount();
   });
 
   client.send(
@@ -116,7 +127,7 @@ wss.on("connection", async (socket) => {
     }),
   );
 
-  await redisClient.zIncrBy(serversLoadKey, 1, serverId);
+  incrementClientCount();
 });
 
 const subscriber = createClient();
@@ -126,19 +137,6 @@ await subscriber.subscribe(
   redisRedistributeChannelFactory(serverId),
   redistributeListener,
 );
-
-setInterval(async () => {
-  await redisClient.zAdd(serversTimeoutKey, {
-    score: Date.now(),
-    value: serverId,
-  });
-  if (((await redisClient.zScore(serversLoadKey, serverId)) ?? 0) < 0) {
-    await redisClient.zAdd(serversLoadKey, {
-      score: 0,
-      value: serverId,
-    });
-  }
-}, 1000);
 
 let lastRequestedHelp = 0;
 const lastFivePerformanceNumbers = new Array(5).fill(0);
@@ -167,6 +165,19 @@ setInterval(() => {
   });
 }, 1000);
 
+setInterval(async () => {
+  await redisClient.zAdd(serversTimeoutKey, {
+    score: Date.now(),
+    value: serverId,
+  });
+  if (((await redisClient.zScore(serversClientCountKey, serverId)) ?? 0) < 0) {
+    await redisClient.zAdd(serversClientCountKey, {
+      score: 0,
+      value: serverId,
+    });
+  }
+}, 1000);
+
 const registerSocket = async (
   registrationMessage: WebSocketMessage<RegistrationPayload>,
   socket: ClientSocket,
@@ -174,6 +185,7 @@ const registerSocket = async (
   const chatChannel = registrationMessage.payload.chatId;
 
   if (rooms.get(chatChannel) === undefined) {
+    incrementChatCount();
     debugLog(`subscribing to ${chatChannel}`);
 
     rooms.set(chatChannel, {

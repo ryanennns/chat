@@ -3,7 +3,7 @@ import { app } from "@load-balancer/src/app.js";
 import supertest from "supertest";
 import { v4 } from "uuid";
 import { serverBlacklist } from "@load-balancer/src/utils.ts";
-import { serversLoadKey } from "@packages/shared/src/index.ts";
+import { serversClientCountKey } from "@packages/shared/src/index.ts";
 
 const mockRedisClient = vi.hoisted(() => ({
   connect: vi.fn(),
@@ -24,7 +24,11 @@ describe("servers.provision", () => {
     const response = await supertest(app).get(endpoint).send();
 
     expect(mockRedisClient.zRange).toHaveBeenCalledTimes(5);
-    expect(mockRedisClient.zRange).toHaveBeenCalledWith(serversLoadKey, 0, 0);
+    expect(mockRedisClient.zRange).toHaveBeenCalledWith(
+      serversClientCountKey,
+      0,
+      0,
+    );
     expect(mockRedisClient.hGet).not.toHaveBeenCalled();
 
     expect(response.status).toEqual(404);
@@ -37,7 +41,11 @@ describe("servers.provision", () => {
     const response = await supertest(app).get(endpoint).send();
 
     expect(mockRedisClient.zRange).toHaveBeenCalledTimes(5);
-    expect(mockRedisClient.zRange).toHaveBeenCalledWith(serversLoadKey, 0, 0);
+    expect(mockRedisClient.zRange).toHaveBeenCalledWith(
+      serversClientCountKey,
+      0,
+      0,
+    );
     expect(mockRedisClient.hGet).toHaveBeenCalledTimes(5);
     expect(mockRedisClient.hGet).toHaveBeenCalledWith(`server:${uuid}`, "url");
 
@@ -53,7 +61,11 @@ describe("servers.provision", () => {
     const response = await supertest(app).get(endpoint).send();
 
     expect(mockRedisClient.zRange).toHaveBeenCalledOnce();
-    expect(mockRedisClient.zRange).toHaveBeenCalledWith(serversLoadKey, 0, 0);
+    expect(mockRedisClient.zRange).toHaveBeenCalledWith(
+      serversClientCountKey,
+      0,
+      0,
+    );
     expect(mockRedisClient.hGet).toHaveBeenCalledOnce();
     expect(mockRedisClient.hGet).toHaveBeenCalledWith(`server:${uuid}`, "url");
 

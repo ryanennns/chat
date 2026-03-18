@@ -5,9 +5,9 @@ export interface Server {
   url: string;
 }
 
-export const redisChatServersKey = "servers";
 export const redistributeChannel = "wss-redistribute";
-export const serversLoadKey = "servers:load";
+export const serversClientCountKey = "servers:load";
+export const serversChatsCountKey = "servers:chats";
 export const serversTimeoutKey = "servers:timeout";
 export const redisRedistributeChannelFactory = (serverId: string) =>
   `${serverId}-${redistributeChannel}`;
@@ -21,7 +21,7 @@ export const addServerToRedis = async (server: Server) => {
     serverId: server.id,
     url: server.url,
   });
-  await redisClient.zAdd(serversLoadKey, {
+  await redisClient.zAdd(serversClientCountKey, {
     score: 0,
     value: server.id,
   });
@@ -38,7 +38,7 @@ export const removeServerFromRedis = async (serverId: string) => {
   await redisClient.connect();
 
   await redisClient.del(redisServerKeyFactory(serverId));
-  await redisClient.zRem(serversLoadKey, serverId);
+  await redisClient.zRem(serversClientCountKey, serverId);
   await redisClient.zRem(serversTimeoutKey, serverId);
 
   redisClient.destroy();

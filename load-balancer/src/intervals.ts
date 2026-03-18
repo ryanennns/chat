@@ -3,7 +3,7 @@ import {
   debugLog,
   redisRedistributeChannelFactory,
   removeServerFromRedis,
-  serversLoadKey,
+  serversClientCountKey,
   serversTimeoutKey,
 } from "@chat/shared";
 
@@ -33,7 +33,7 @@ const shouldRedistribute = (
 
 export async function redistributeLoad() {
   const serverConnectionsMap = (
-    await redisClient.zRangeWithScores(serversLoadKey, 0, -1)
+    await redisClient.zRangeWithScores(serversClientCountKey, 0, -1)
   ).filter((serverConnection) => !serverBlacklist.has(serverConnection.value));
   runtimeState.lastRedistribution = null;
   const numberOfClients = serverConnectionsMap.reduce(
@@ -58,9 +58,7 @@ export async function redistributeLoad() {
         serverConnectionsMap.length,
       )
     ) {
-      const redistributeBy =
-        serverScoreMap.score -
-        Math.floor(optimal) / serverConnectionsMap.length;
+      const redistributeBy = serverScoreMap.score - Math.floor(optimal);
       debugLog(
         `${serverScoreMap.score}, ${numberOfClients}, ${serverConnectionsMap.length}, ${redistributeBy}`,
       );
