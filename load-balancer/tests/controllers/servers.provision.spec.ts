@@ -19,6 +19,9 @@ describe("servers.provision", () => {
   it("throws 500 if no server found", async () => {
     const response = await supertest(app).get("/servers/provision").send();
 
+    expect(mockRedisClient.zRange).toHaveBeenCalledOnce();
+    expect(mockRedisClient.hGet).not.toHaveBeenCalled();
+
     expect(response.status).toEqual(500);
   });
 
@@ -26,6 +29,9 @@ describe("servers.provision", () => {
     mockRedisClient.zRange = vi.fn(() => v4());
 
     const response = await supertest(app).get("/servers/provision").send();
+
+    expect(mockRedisClient.zRange).toHaveBeenCalledOnce();
+    expect(mockRedisClient.hGet).toHaveBeenCalledOnce();
 
     expect(response.status).toEqual(404);
   });
@@ -36,6 +42,9 @@ describe("servers.provision", () => {
     mockRedisClient.hGet = vi.fn(() => "ws://snickers.test:8080");
 
     const response = await supertest(app).get("/servers/provision").send();
+
+    expect(mockRedisClient.zRange).toHaveBeenCalledOnce();
+    expect(mockRedisClient.hGet).toHaveBeenCalledOnce();
 
     expect(response.status).toEqual(200);
   });
