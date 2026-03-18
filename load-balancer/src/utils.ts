@@ -1,8 +1,11 @@
 import { createClient } from "redis";
 import { terminalUi } from "../terminal-ui.ts";
+import type { ChildProcessWithoutNullStreams } from "node:child_process";
 
 export const redisClient = createClient();
 await redisClient.connect();
+export const subscriptionClient = createClient();
+await subscriptionClient.connect();
 
 export const serverBlacklist = new Map<string, number>();
 
@@ -26,8 +29,10 @@ export const shutdown = async () => {
   try {
     terminalUi.destroy();
     await redisClient.quit();
+    await subscriptionClient.quit();
   } catch {
     redisClient.destroy();
+    subscriptionClient.destroy();
   } finally {
     process.exit(0);
   }
@@ -45,3 +50,5 @@ setInterval(() => {
     ...runtimeState,
   });
 }, 1000);
+
+export const childServerMap = new Map<string, ChildProcessWithoutNullStreams>();

@@ -1,8 +1,9 @@
 import { createClient } from "redis";
 import { v4 } from "uuid";
 import { WebSocketServer } from "ws";
-import type {
+import {
   ChatPayload,
+  redisServerKeyFactory,
   RegistrationPayload,
   WebSocketMessage,
 } from "@chat/shared";
@@ -21,7 +22,7 @@ import {
   redistributeListener,
   REQUEST_HELP_EVERY_MS,
   Room,
-} from "@chat-server/src/utils.js";
+} from "./src/utils.js";
 
 const redisClient = createClient();
 await redisClient.connect();
@@ -45,18 +46,23 @@ interface WebsocketServerInfo {
   serverId: string;
 }
 
+const idArg = process.argv.find((arg) => arg.startsWith("--id="));
+const idArgument = idArg ? idArg.split("=")[1] : undefined;
 const websocketServerFactory = (port: number): Promise<WebsocketServerInfo> => {
   return new Promise<WebsocketServerInfo>((resolve) => {
     let wss = new WebSocketServer({ port });
 
     wss.on("error", () => resolve(websocketServerFactory(port + 1)));
 
-    wss.on("listening", async () => resolve({ wss, port, serverId: v4() }));
+    wss.on("listening", async () =>
+      resolve({ wss, port, serverId: idArgument ?? v4() }),
+    );
   });
 };
 let { wss, port, serverId } = await websocketServerFactory(8080);
 const url = `ws://localhost:${port}`;
 debugLog(`started ${serverId} on port ${port}`);
+await redisClient.publish(redisServerKeyFactory(serverId), url);
 void addSelfToRedis();
 
 const rooms: Map<string, Room> = new Map();
