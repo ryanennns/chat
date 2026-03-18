@@ -1,9 +1,8 @@
 import { createClient } from "redis";
 import { v4 } from "uuid";
-import WebSocket, { WebSocketServer } from "ws";
+import { WebSocketServer } from "ws";
 import type {
   ChatPayload,
-  RedistributionPayload,
   RegistrationPayload,
   WebSocketMessage,
 } from "@chat/shared";
@@ -15,11 +14,14 @@ import {
   serversLoadKey,
   serversTimeoutKey,
 } from "@chat/shared";
-
-const REQUEST_HELP_EVERY_MS = 10_000;
-const EVENTLOOP_TIMEOUT_THRESHOLD_MS = 15.0;
-const REDISTRIBUTE_BY_FACTOR = 0.22;
-const MESSAGE_BATCH_SIZE = 10;
+import {
+  ClientSocket,
+  EVENTLOOP_TIMEOUT_THRESHOLD_MS,
+  flushRoom,
+  redistributeListener,
+  REQUEST_HELP_EVERY_MS,
+  Room,
+} from "@chat-server/src/utils.js";
 
 const redisClient = createClient();
 await redisClient.connect();
@@ -36,12 +38,6 @@ const addSelfToRedis = async () => {
 
   debugLog("successfully added wss to redis!");
 };
-
-interface ClientSocket extends WebSocket {
-  id: string;
-  isAlive: boolean;
-  chatId: string | undefined;
-}
 
 interface WebsocketServerInfo {
   wss: WebSocketServer;
@@ -63,11 +59,6 @@ const url = `ws://localhost:${port}`;
 debugLog(`started ${serverId} on port ${port}`);
 void addSelfToRedis();
 
-interface Room {
-  clients: Set<ClientSocket>;
-  queue: Array<string>;
-  running: boolean;
-}
 const rooms: Map<string, Room> = new Map();
 
 wss.on("connection", async (socket) => {
@@ -125,15 +116,9 @@ wss.on("connection", async (socket) => {
 const subscriber = createClient();
 await subscriber.connect();
 
-let redistributeBy = 0;
 await subscriber.subscribe(
   redisRedistributeChannelFactory(serverId),
-  (message: string) => {
-    redistributeBy = Math.floor(
-      Math.max(Number(message) * REDISTRIBUTE_BY_FACTOR, 1),
-    );
-    debugLog(`over by ${message}; nuking ${redistributeBy} clients`);
-  },
+  redistributeListener,
 );
 
 setInterval(async () => {
@@ -175,52 +160,6 @@ setInterval(() => {
     void updatePerformanceNumbers(timeout);
   });
 }, 1000);
-
-const redistributePayload: WebSocketMessage<RedistributionPayload> = {
-  type: "redistribute",
-  payload: {
-    reason: "new-wss",
-  },
-};
-
-const flushRoom = (room: Room) => {
-  if (room.queue.length < 1) {
-    room.running = false;
-
-    return;
-  }
-
-  const message = room.queue.shift() as string;
-  const sockets = room.clients.values();
-
-  let i = 0;
-
-  const batch = () => {
-    const end = Math.min(i + MESSAGE_BATCH_SIZE, room.clients.size);
-
-    for (; i < end; i++) {
-      const socket = sockets.next().value;
-      if (!socket) {
-        return;
-      }
-
-      if (socket.readyState === WebSocket.OPEN) {
-        if (redistributeBy > 0) {
-          socket.send(JSON.stringify(redistributePayload));
-          redistributeBy--;
-        } else {
-          socket.send(message);
-        }
-      }
-    }
-
-    i < room.clients.size
-      ? setImmediate(batch)
-      : setImmediate(() => flushRoom(room));
-  };
-
-  batch();
-};
 
 const registerSocket = async (
   registrationMessage: WebSocketMessage<RegistrationPayload>,
