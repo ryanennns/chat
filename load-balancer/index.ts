@@ -7,9 +7,11 @@ import {
   removeServerFromRedis,
   redisServerKeyFactory,
 } from "@chat/shared";
+import { terminalUi } from "./terminal-ui.ts";
 
 const app = express();
 const port = 3000;
+terminalUi.setRuntimeInfo({ port, serviceName: "load-balancer" });
 
 app.use(express.json());
 
@@ -17,6 +19,21 @@ const redisClient = createClient();
 await redisClient.connect();
 
 const blacklist = new Map<string, number>();
+const runtimeState = {
+  lastProvisionedServer: null as string | null,
+  lastRedistribution: null as {
+    amount: number;
+    serverId: string;
+    timestamp: string;
+  } | null,
+  lastRemovedServer: null as string | null,
+  optimalDistribution: 0,
+  provisionCount: 0,
+  serverLoads: [] as Array<[string, number]>,
+  timedOutServers: [] as string[],
+  totalClients: 0,
+  totalServers: 0,
+};
 app.get("/servers/provision", async (req, res) => {
   let i = 0;
   let id: string | null = null;
@@ -50,6 +67,9 @@ app.get("/servers/provision", async (req, res) => {
       url,
     }),
   );
+
+  runtimeState.provisionCount++;
+  runtimeState.lastProvisionedServer = id;
 });
 
 const shouldRedistribute = (
@@ -72,16 +92,20 @@ async function redistributeLoad() {
     0,
     -1,
   );
+  runtimeState.lastRedistribution = null;
   const numberOfClients = serverConnectionsMap.reduce(
     (a, b) => Number(a) + Number(b.score),
     0,
   );
   serverConnectionsMap.sort((a, b) => b.score - a.score);
-  console.log("number of servers: ", serverConnectionsMap);
-  console.log("number of clients: ", numberOfClients);
-  console.log("server blacklist: ", blacklist);
+  runtimeState.serverLoads = serverConnectionsMap.map(({ value, score }) => [
+    value,
+    score,
+  ]);
+  runtimeState.totalClients = numberOfClients;
+  runtimeState.totalServers = serverConnectionsMap.length;
   const optimal = numberOfClients / serverConnectionsMap.length;
-  console.log("optimal distribution: ", optimal);
+  runtimeState.optimalDistribution = Number.isFinite(optimal) ? optimal : 0;
 
   for (const map of serverConnectionsMap) {
     if (
@@ -91,9 +115,17 @@ async function redistributeLoad() {
         serverConnectionsMap.length,
       )
     ) {
+      const redistributeBy = map.score - Math.floor(optimal);
+      runtimeState.lastRedistribution = {
+        amount: redistributeBy,
+        serverId: map.value,
+        timestamp: new Date().toLocaleTimeString("en-US", {
+          hour12: false,
+        }),
+      };
       await redisClient.publish(
         redisRedistributeChannelFactory(map.value),
-        JSON.stringify(map.score - Math.floor(optimal)),
+        JSON.stringify(redistributeBy),
       );
     }
   }
@@ -107,6 +139,7 @@ const healthChecks = async () => {
     0,
     cutoff,
   );
+  runtimeState.timedOutServers = timedOutServers;
 
   timedOutServers.forEach(
     (serverId) =>
@@ -115,18 +148,26 @@ const healthChecks = async () => {
 
   blacklist.forEach((timeout, server) => {
     if (Date.now() - timeout > 10_000) {
-      console.log("removing server from redis list: ", server);
       void removeServerFromRedis(server);
       blacklist.delete(server);
+      runtimeState.lastRemovedServer = server;
     }
   });
-
-  // console.log("dead servers", deadServerIds);
 };
 
 setInterval(async () => {
   await redistributeLoad();
   await healthChecks();
+  terminalUi.setSnapshot({
+    blacklistedServers: [...blacklist.entries()].map(
+      ([serverId, startedAt]) => [
+        serverId,
+        Math.floor((Date.now() - startedAt) / 1000),
+      ],
+    ),
+    status: "running",
+    ...runtimeState,
+  });
 }, 1000);
 
 app.listen(port, () => {
@@ -135,6 +176,7 @@ app.listen(port, () => {
 
 const shutdown = async () => {
   try {
+    terminalUi.destroy();
     await redisClient.quit();
   } catch {
     redisClient.destroy();

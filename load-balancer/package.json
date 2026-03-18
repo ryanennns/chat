@@ -19,6 +19,8 @@
   },
   "dependencies": {
     "@chat/shared": "file:../packages/shared",
+    "@types/blessed": "^0.1.27",
+    "blessed": "^0.1.81",
     "express": "^5.2.1",
     "prettier": "^3.8.1",
     "redis": "^5.11.0"
