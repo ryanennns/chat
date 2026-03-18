@@ -23,6 +23,7 @@ export const provisionServer = async (
     if (!url) {
       id = null;
       i++;
+      continue;
     }
 
     break;
