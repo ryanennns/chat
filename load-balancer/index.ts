@@ -119,3 +119,5 @@ setInterval(async () => {
 
 process.on("SIGTERM", shutdown);
 process.on("SIGINT", shutdown);
+process.on("SIGUSR2", shutdown);
+process.on("SIGHUP", shutdown);
