@@ -1,13 +1,18 @@
 import express from "express";
-import { createClient } from "redis";
 import {
   serversLoadKey,
   redisRedistributeChannelFactory,
   serversTimeoutKey,
   removeServerFromRedis,
-  redisServerKeyFactory,
 } from "@chat/shared";
 import { terminalUi } from "./terminal-ui.ts";
+import { provisionServer } from "./src/controllers/servers.provision.ts";
+import {
+  redisClient,
+  runtimeState,
+  serverBlacklist,
+  shutdown,
+} from "./src/utils.ts";
 
 const app = express();
 const port = 3000;
@@ -15,61 +20,10 @@ terminalUi.setRuntimeInfo({ port, serviceName: "load-balancer" });
 
 app.use(express.json());
 
-const redisClient = createClient();
-await redisClient.connect();
+app.get("/servers/provision", provisionServer);
 
-const blacklist = new Map<string, number>();
-const runtimeState = {
-  lastProvisionedServer: null as string | null,
-  lastRedistribution: null as {
-    amount: number;
-    serverId: string;
-    timestamp: string;
-  } | null,
-  lastRemovedServer: null as string | null,
-  optimalDistribution: 0,
-  provisionCount: 0,
-  serverLoads: [] as Array<[string, number]>,
-  timedOutServers: [] as string[],
-  totalClients: 0,
-  totalServers: 0,
-};
-app.get("/servers/provision", async (req, res) => {
-  let i = 0;
-  let id: string | null = null;
-
-  while (i < 5) {
-    id = (await redisClient.zRange(serversLoadKey, 0, 0))[0];
-
-    if (!id || blacklist.has(id)) {
-      i++;
-      continue;
-    }
-
-    break;
-  }
-
-  if (!id) {
-    res.sendStatus(500);
-    return;
-  }
-
-  let url = await redisClient.hGet(redisServerKeyFactory(id), "url");
-
-  if (!id || !url) {
-    res.sendStatus(404);
-    return;
-  }
-
-  res.send(
-    JSON.stringify({
-      id,
-      url,
-    }),
-  );
-
-  runtimeState.provisionCount++;
-  runtimeState.lastProvisionedServer = id;
+app.listen(port, () => {
+  console.log(`listening on port ${port}`);
 });
 
 const shouldRedistribute = (
@@ -143,13 +97,14 @@ const healthChecks = async () => {
 
   timedOutServers.forEach(
     (serverId) =>
-      blacklist.get(serverId) ?? blacklist.set(serverId, Date.now()),
+      serverBlacklist.get(serverId) ??
+      serverBlacklist.set(serverId, Date.now()),
   );
 
-  blacklist.forEach((timeout, server) => {
+  serverBlacklist.forEach((timeout, server) => {
     if (Date.now() - timeout > 10_000) {
       void removeServerFromRedis(server);
-      blacklist.delete(server);
+      serverBlacklist.delete(server);
       runtimeState.lastRemovedServer = server;
     }
   });
@@ -158,31 +113,7 @@ const healthChecks = async () => {
 setInterval(async () => {
   await redistributeLoad();
   await healthChecks();
-  terminalUi.setSnapshot({
-    blacklistedServers: [...blacklist.entries()].map(
-      ([serverId, startedAt]) => [
-        serverId,
-        Math.floor((Date.now() - startedAt) / 1000),
-      ],
-    ),
-    status: "running",
-    ...runtimeState,
-  });
 }, 1000);
 
-app.listen(port, () => {
-  console.log(`listening on port ${port}`);
-});
-
-const shutdown = async () => {
-  try {
-    terminalUi.destroy();
-    await redisClient.quit();
-  } catch {
-    redisClient.destroy();
-  } finally {
-    process.exit(0);
-  }
-};
 process.on("SIGTERM", shutdown);
 process.on("SIGINT", shutdown);
