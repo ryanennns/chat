@@ -1,6 +1,8 @@
 import { createClient } from "redis";
 import { terminalUi } from "../terminal-ui.ts";
-import type { ChildProcessWithoutNullStreams } from "node:child_process";
+import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
+import path from "node:path";
+import { redisServerKeyFactory, type Server } from "@chat/shared";
 
 export const redisClient = createClient();
 await redisClient.connect();
@@ -52,3 +54,52 @@ setInterval(() => {
 }, 1000);
 
 export const childServerMap = new Map<string, ChildProcessWithoutNullStreams>();
+export const websocketServerFactory = async (
+  id: string,
+): Promise<
+  | {
+      server: Server;
+      child: ChildProcessWithoutNullStreams;
+    }
+  | undefined
+> => {
+  let foundNewServer = false;
+  let url: string | undefined = undefined;
+  await subscriptionClient.subscribe(
+    redisServerKeyFactory(id),
+    (newUrl: string) => {
+      console.log(newUrl);
+      foundNewServer = true;
+      url = newUrl;
+    },
+  );
+
+  const args = [path.resolve("../chat-server/dist/chat-server/index.js")];
+  args.push(`--id=${id}`);
+
+  const child = spawn(process.execPath, args);
+
+  const timeoutMs = 5_000;
+  const now = Date.now();
+  const poll = async () => {
+    while (!foundNewServer && Date.now() - now < timeoutMs) {
+      await new Promise((r) => setTimeout(r, 100));
+    }
+  };
+
+  await poll();
+
+  await subscriptionClient.unsubscribe(redisServerKeyFactory(id));
+
+  if (!url) {
+    return undefined;
+  }
+
+  return {
+    server: {
+      id,
+      url,
+    },
+    child,
+  };
+};
