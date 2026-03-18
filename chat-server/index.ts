@@ -18,7 +18,7 @@ import {
 
 const REQUEST_HELP_EVERY_MS = 10_000;
 const EVENTLOOP_TIMEOUT_THRESHOLD_MS = 15.0;
-const REDISTRIBUTE_BY_FACTOR = 0.33;
+const REDISTRIBUTE_BY_FACTOR = 0.22;
 const MESSAGE_BATCH_SIZE = 10;
 
 const redisClient = createClient();

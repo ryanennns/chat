@@ -1,5 +1,6 @@
 import { redisClient, runtimeState, serverBlacklist } from "./utils.ts";
 import {
+  debugLog,
   redisRedistributeChannelFactory,
   removeServerFromRedis,
   serversLoadKey,
@@ -30,12 +31,10 @@ const shouldRedistribute = (
   );
 };
 
-async function redistributeLoad() {
-  const serverConnectionsMap = await redisClient.zRangeWithScores(
-    serversLoadKey,
-    0,
-    -1,
-  );
+export async function redistributeLoad() {
+  const serverConnectionsMap = (
+    await redisClient.zRangeWithScores(serversLoadKey, 0, -1)
+  ).filter((serverConnection) => !serverBlacklist.has(serverConnection.value));
   runtimeState.lastRedistribution = null;
   const numberOfClients = serverConnectionsMap.reduce(
     (a, b) => Number(a) + Number(b.score),
@@ -51,31 +50,36 @@ async function redistributeLoad() {
   const optimal = numberOfClients / serverConnectionsMap.length;
   runtimeState.optimalDistribution = Number.isFinite(optimal) ? optimal : 0;
 
-  for (const map of serverConnectionsMap) {
+  for (const serverScoreMap of serverConnectionsMap) {
     if (
       shouldRedistribute(
-        map.score,
+        serverScoreMap.score,
         numberOfClients,
         serverConnectionsMap.length,
       )
     ) {
-      const redistributeBy = map.score - Math.floor(optimal);
+      const redistributeBy =
+        serverScoreMap.score -
+        Math.floor(optimal) / serverConnectionsMap.length;
+      debugLog(
+        `${serverScoreMap.score}, ${numberOfClients}, ${serverConnectionsMap.length}, ${redistributeBy}`,
+      );
       runtimeState.lastRedistribution = {
         amount: redistributeBy,
-        serverId: map.value,
+        serverId: serverScoreMap.value,
         timestamp: new Date().toLocaleTimeString("en-US", {
           hour12: false,
         }),
       };
       await redisClient.publish(
-        redisRedistributeChannelFactory(map.value),
+        redisRedistributeChannelFactory(serverScoreMap.value),
         JSON.stringify(redistributeBy),
       );
     }
   }
 }
 
-const healthChecks = async () => {
+export const healthChecks = async () => {
   const cutoff = Date.now() - wssServerTimeoutMs;
   const timedOutServers = await redisClient.zRangeByScore(
     serversTimeoutKey,
@@ -99,8 +103,11 @@ const healthChecks = async () => {
   });
 };
 
-export const startIntervals = () =>
+export const startIntervals = () => {
+  setInterval(async () => {
+    await healthChecks();
+  }, 100);
   setInterval(async () => {
     await redistributeLoad();
-    await healthChecks();
-  }, 1000);
+  }, 1500);
+};
