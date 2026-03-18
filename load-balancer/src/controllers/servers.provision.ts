@@ -13,6 +13,7 @@ export const provisionServer = async (
     id = (await redisClient.zRange(serversLoadKey, 0, 0))[0];
 
     if (!id || serverBlacklist.has(id)) {
+      id = null;
       i++;
       continue;
     }
@@ -32,12 +33,10 @@ export const provisionServer = async (
     return;
   }
 
-  res.send(
-    JSON.stringify({
-      id,
-      url,
-    }),
-  );
+  res.json({
+    id,
+    url,
+  });
 
   runtimeState.provisionCount++;
   runtimeState.lastProvisionedServer = id;
