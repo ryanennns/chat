@@ -33,7 +33,7 @@ export const provisionServer = async (
     return;
   }
 
-  res.json({
+  res.status(200).json({
     id,
     url,
   });
