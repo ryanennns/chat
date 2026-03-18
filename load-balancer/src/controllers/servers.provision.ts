@@ -8,7 +8,7 @@ export const provisionServer = async (
 ) => {
   let i = 0;
   let id: string | null = null;
-
+  let url: string | null = null;
   while (i < 5) {
     id = (await redisClient.zRange(serversLoadKey, 0, 0))[0];
 
@@ -18,15 +18,15 @@ export const provisionServer = async (
       continue;
     }
 
+    url = await redisClient.hGet(redisServerKeyFactory(id), "url");
+
+    if (!url) {
+      id = null;
+      i++;
+    }
+
     break;
   }
-
-  if (!id) {
-    res.sendStatus(500);
-    return;
-  }
-
-  let url = await redisClient.hGet(redisServerKeyFactory(id), "url");
 
   if (!id || !url) {
     res.sendStatus(404);

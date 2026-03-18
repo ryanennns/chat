@@ -16,17 +16,19 @@ vi.mock("redis", () => {
 });
 
 describe("servers.provision", () => {
-  it("throws 500 if no server found", async () => {
+  it("throws 404 if no server found", async () => {
+    mockRedisClient.zRange = vi.fn(async () => [undefined, undefined]);
     const response = await supertest(app).get("/servers/provision").send();
 
-    expect(mockRedisClient.zRange).toHaveBeenCalledOnce();
+    expect(mockRedisClient.zRange).toHaveBeenCalledTimes(5);
     expect(mockRedisClient.hGet).not.toHaveBeenCalled();
 
-    expect(response.status).toEqual(500);
+    expect(response.status).toEqual(404);
   });
 
   it("throws 404 if ID found but no URL found", async () => {
-    mockRedisClient.zRange = vi.fn(() => v4());
+    const uuid = v4();
+    mockRedisClient.zRange = vi.fn(async () => [uuid, 0]);
 
     const response = await supertest(app).get("/servers/provision").send();
 
@@ -38,7 +40,7 @@ describe("servers.provision", () => {
 
   it("returns 200 if server found", async () => {
     const uuid = v4();
-    mockRedisClient.zRange = vi.fn(() => uuid);
+    mockRedisClient.zRange = vi.fn(() => [uuid, 0]);
     mockRedisClient.hGet = vi.fn(() => "ws://snickers.test:8080");
 
     const response = await supertest(app).get("/servers/provision").send();
