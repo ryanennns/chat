@@ -56,6 +56,31 @@ describe("intervals", () => {
         "7.5",
       );
     });
+
+    it("doesn't trigger redistribution when server is blacklisted", async () => {
+      mockRedisClient.publish = vi.fn();
+      const now = Date.now();
+      vi.useFakeTimers();
+      vi.setSystemTime(now);
+
+      const healthyServerOne = v4();
+      const healthyServerTwo = v4();
+      const deadServer = v4();
+
+      mockRedisClient.zRangeWithScores = vi.fn(() => {
+        return [
+          { value: healthyServerOne, score: 500 },
+          { value: healthyServerTwo, score: 500 },
+          { value: deadServer, score: 500 },
+        ];
+      });
+
+      serverBlacklist.set(deadServer, Date.now());
+
+      await redistributeLoad();
+
+      expect(mockRedisClient.publish).not.toHaveBeenCalled();
+    });
   });
 
   describe("healthChecks", () => {
@@ -89,31 +114,6 @@ describe("intervals", () => {
 
       expect(serverBlacklist.size).toBe(0);
       expect(mockedRemoveServerFromRedis).toHaveBeenCalledOnce();
-    });
-
-    it("doesn't trigger redistribution when server is blacklisted", async () => {
-      mockRedisClient.publish = vi.fn();
-      const now = Date.now();
-      vi.useFakeTimers();
-      vi.setSystemTime(now);
-
-      const healthyServerOne = v4();
-      const healthyServerTwo = v4();
-      const deadServer = v4();
-
-      mockRedisClient.zRangeWithScores = vi.fn(() => {
-        return [
-          { value: healthyServerOne, score: 500 },
-          { value: healthyServerTwo, score: 500 },
-          { value: deadServer, score: 500 },
-        ];
-      });
-
-      serverBlacklist.set(deadServer, Date.now());
-
-      await redistributeLoad();
-
-      expect(mockRedisClient.publish).not.toHaveBeenCalled();
     });
   });
 });
