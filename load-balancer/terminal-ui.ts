@@ -296,10 +296,11 @@ class LoadBalancerTerminalUi {
           const blacklistAge = this.snapshot.blacklistedServers.find(
             ([blacklistedServerId]) => blacklistedServerId === serverId,
           )?.[1];
+          const color = blacklistAge === undefined ? "green-fg" : "red-fg";
           const blacklistSuffix =
             blacklistAge === undefined ? "" : `  blacklisted ${blacklistAge}s`;
 
-          return `${serverId}  ${load}${blacklistSuffix}`;
+          return `{${color}}${serverId}  ${load}${blacklistSuffix}{/${color}}`;
         });
 
       this.serverBox.setContent(
