@@ -5,6 +5,11 @@
     "moduleResolution": "NodeNext",
     "baseUrl": ".",
     "paths": {
+      "@chat-client/*": ["./chat-client/*"],
+      "@chat-server/*": ["./chat-server/*"],
+      "@load-balancer/*": ["./load-balancer/*"],
+      "@packages/*": ["./packages/*"],
+      "@shared/*": ["./packages/shared/*"],
       "@chat/shared": ["./packages/shared/src/index.ts"]
     },
     "strict": true,

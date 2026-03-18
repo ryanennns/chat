@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { app } from "../../src/app.js";
+import { app } from "@load-balancer/src/app.js";
 import supertest from "supertest";
 import { v4 } from "uuid";
 
