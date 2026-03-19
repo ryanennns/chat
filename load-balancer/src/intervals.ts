@@ -153,7 +153,7 @@ export let provisionsThisSecond = 0;
 export const incrProvisionsThisSecond = () => provisionsThisSecond++;
 const updatePps = () => {
   pps = provisionsThisSecond;
-  runtimeState.rps = pps;
+  runtimeState.pps = pps;
   provisionsThisSecond = 0;
 };
 
