@@ -70,6 +70,7 @@ export interface RegistrationPayload {
 // rebalancing purposes
 export interface RedistributionPayload {
   reason: string;
+  redirect: string | undefined;
 }
 
 declare const process: {
@@ -80,4 +81,36 @@ export const debugLog = (message: any) => {
   if (process.env.CHAT_DEBUG_LOG === "true") {
     console.log(message);
   }
+};
+
+export const getLowestLoadServers = async (
+  count?: number | undefined,
+): Promise<Array<{ id: string; url: string }>> => {
+  const redisClient = createClient();
+  await redisClient.connect();
+
+  const ids = await redisClient.zRange(serversRatioKey, 0, (count ?? 100) - 1);
+
+  const results: Array<{ id: string; url: string }> = [];
+
+  for (const id of ids) {
+    const url = await redisClient.hGet(redisServerKeyFactory(id), "url");
+    if (url) {
+      results.push({ id, url });
+    }
+  }
+
+  redisClient.destroy();
+
+  return results;
+};
+
+export const getLowestLoadServer = async (): Promise<Server | undefined> => {
+  const server = (await getLowestLoadServers())[0];
+
+  if (!server) {
+    return undefined;
+  }
+
+  return server;
 };
