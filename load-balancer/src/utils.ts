@@ -23,6 +23,7 @@ export const runtimeState = {
   optimalDistribution: 0,
   provisionCount: 0,
   pps: 0,
+  serverMps: [] as Array<[string, number]>,
   serverLoads: [] as Array<[string, number]>,
   timedOutServers: [] as string[],
   totalClients: 0,
@@ -43,11 +44,13 @@ export const shutdown = async () => {
 };
 
 await subscriptionClient.subscribe("panic", (server: string) => {
-  debugLog(`server id ${server} is timing out...`);
+  const payload = JSON.parse(server);
+  debugLog(`server id ${payload.serverId} is timing out (${payload.timeout})`);
 });
 
 setInterval(() => {
   const clientsByServerId = new Map(runtimeState.serverLoads);
+  const mpsByServerId = new Map(runtimeState.serverMps);
 
   terminalUi.setSnapshot({
     blacklistedServers: [...serverBlacklist.entries()].map(
@@ -59,6 +62,7 @@ setInterval(() => {
     childServers: [...childServerMap.entries()].map(([serverId, child]) => ({
       clients: clientsByServerId.get(serverId) ?? 0,
       isKilled: child.killed,
+      mps: mpsByServerId.get(serverId) ?? 0,
       pid: child.pid,
       serverId,
     })),

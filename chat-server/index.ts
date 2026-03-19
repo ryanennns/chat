@@ -186,7 +186,7 @@ const updatePerformanceNumbers = async (timeout: number) => {
   if (shouldPanic()) {
     lastRequestedHelp = Date.now();
     debugLog("event loop is blocking! timeout: " + timeout);
-    void redisClient.publish("panic", serverId);
+    void redisClient.publish("panic", JSON.stringify({ serverId, timeout }));
   }
 };
 setInterval(() => {
