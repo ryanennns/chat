@@ -1,6 +1,6 @@
 import { runtimeState } from "../utils.ts";
 import express from "express";
-import { incrProvisionsThisSecond } from "@load-balancer/src/intervals.ts";
+import { incrProvisionsThisSecond } from "../intervals.ts";
 import { getLowestLoadServer } from "@chat/shared";
 
 export const provisionServer = async (
