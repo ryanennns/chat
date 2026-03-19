@@ -2,6 +2,7 @@ import {
   debugLog,
   getLowestLoadServer,
   RedistributionPayload,
+  Server,
   WebSocketMessage,
 } from "@chat/shared";
 import WebSocket from "ws";
@@ -13,25 +14,27 @@ export const EVENTLOOP_TIMEOUT_THRESHOLD_MS = 15.0;
 export const REDISTRIBUTE_BY_FACTOR = 0.22;
 export const MESSAGE_BATCH_SIZE = 10;
 
-const redistributeMessageFactory = async (): Promise<
-  WebSocketMessage<RedistributionPayload>
-> => {
-  const message: WebSocketMessage<RedistributionPayload> = {
-    type: "redistribute",
-    payload: {
-      reason: "new-wss",
-      redirect: undefined,
-    },
+let lowestLoadServer: Server | undefined = undefined;
+setInterval(async () => {
+  lowestLoadServer = await getLowestLoadServer();
+}, 1000);
+
+const redistributeMessageFactory =
+  (): WebSocketMessage<RedistributionPayload> => {
+    const message: WebSocketMessage<RedistributionPayload> = {
+      type: "redistribute",
+      payload: {
+        reason: "new-wss",
+        redirect: undefined,
+      },
+    };
+
+    if (lowestLoadServer) {
+      message.payload.redirect = lowestLoadServer.url;
+    }
+
+    return message;
   };
-
-  const server = await getLowestLoadServer();
-
-  if (server) {
-    message.payload.redirect = server.url;
-  }
-
-  return message;
-};
 
 export interface ClientSocket extends WebSocket {
   id: string;

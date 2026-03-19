@@ -1,82 +1,83 @@
-import { describe, expect, it, vi } from "vitest";
-import { app } from "@load-balancer/src/app.js";
-import supertest from "supertest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { v4 } from "uuid";
-import { serverBlacklist } from "@load-balancer/src/utils.ts";
-import {
-  serversClientCountKey,
-  serversRatioKey,
-} from "@packages/shared/src/index.ts";
+import type express from "express";
 
-const mockRedisClient = vi.hoisted(() => ({
-  connect: vi.fn(),
-  zRange: vi.fn(),
-  hGet: vi.fn(),
-  subscribe: vi.fn(),
+const getLowestLoadServer = vi.hoisted(() => vi.fn());
+const incrProvisionsThisSecond = vi.hoisted(() => vi.fn());
+const runtimeState = vi.hoisted(() => ({
+  lastProvisionedServer: null as string | null,
+  provisionCount: 0,
 }));
 
-vi.mock("redis", () => {
+vi.mock("@chat/shared", async () => {
+  const actual =
+    await vi.importActual<typeof import("@chat/shared")>("@chat/shared");
+
   return {
-    createClient: vi.fn(() => mockRedisClient),
+    ...actual,
+    getLowestLoadServer,
   };
 });
 
-const endpoint = "/servers/provision";
+vi.mock("@load-balancer/src/intervals.ts", () => ({
+  incrProvisionsThisSecond,
+}));
+
+vi.mock("@load-balancer/src/utils.ts", () => ({
+  runtimeState,
+}));
+
+import { provisionServer } from "@load-balancer/src/controllers/servers.provision.ts";
+
 describe("servers.provision", () => {
-  it("throws 404 if no server found", async () => {
-    mockRedisClient.zRange = vi.fn(async () => [undefined, undefined]);
-    const response = await supertest(app).get(endpoint).send();
-
-    expect(mockRedisClient.zRange).toHaveBeenCalledTimes(5);
-    expect(mockRedisClient.zRange).toHaveBeenCalledWith(serversRatioKey, 0, 0);
-    expect(mockRedisClient.hGet).not.toHaveBeenCalled();
-
-    expect(response.status).toEqual(404);
+  beforeEach(() => {
+    getLowestLoadServer.mockReset();
+    incrProvisionsThisSecond.mockReset();
+    runtimeState.lastProvisionedServer = null;
+    runtimeState.provisionCount = 0;
   });
 
-  it("throws 404 if ID found but no URL found", async () => {
-    const uuid = v4();
-    mockRedisClient.zRange = vi.fn(async () => [uuid, 0]);
+  const responseFactory = () => {
+    const response = {
+      json: vi.fn(),
+      sendStatus: vi.fn(),
+      status: vi.fn(),
+    } as unknown as express.Response;
+    vi.mocked(response.status).mockReturnValue(response);
 
-    const response = await supertest(app).get(endpoint).send();
+    return response;
+  };
 
-    expect(mockRedisClient.zRange).toHaveBeenCalledTimes(5);
-    expect(mockRedisClient.zRange).toHaveBeenCalledWith(serversRatioKey, 0, 0);
-    expect(mockRedisClient.hGet).toHaveBeenCalledTimes(5);
-    expect(mockRedisClient.hGet).toHaveBeenCalledWith(`server:${uuid}`, "url");
+  it("throws 404 if no server is found", async () => {
+    getLowestLoadServer.mockResolvedValue(undefined);
+    const response = responseFactory();
 
-    expect(response.status).toEqual(404);
+    await provisionServer({} as express.Request, response);
+
+    expect(getLowestLoadServer).toHaveBeenCalledOnce();
+    expect(incrProvisionsThisSecond).toHaveBeenCalledOnce();
+    expect(response.sendStatus).toHaveBeenCalledOnce();
+    expect(response.sendStatus).toHaveBeenCalledWith(404);
+    expect(runtimeState.provisionCount).toBe(0);
   });
 
-  it("returns 200 if server found", async () => {
-    const uuid = v4();
-    const url = "ws://snickers.test:8080";
-    mockRedisClient.zRange = vi.fn(() => [uuid, 0]);
-    mockRedisClient.hGet = vi.fn(() => "ws://snickers.test:8080");
+  it("returns 200 if a server is found", async () => {
+    const server = {
+      id: v4(),
+      url: "ws://snickers.test:8080",
+    };
+    getLowestLoadServer.mockResolvedValue(server);
+    const response = responseFactory();
 
-    const response = await supertest(app).get(endpoint).send();
+    await provisionServer({} as express.Request, response);
 
-    expect(mockRedisClient.zRange).toHaveBeenCalledOnce();
-    expect(mockRedisClient.zRange).toHaveBeenCalledWith(serversRatioKey, 0, 0);
-    expect(mockRedisClient.hGet).toHaveBeenCalledOnce();
-    expect(mockRedisClient.hGet).toHaveBeenCalledWith(`server:${uuid}`, "url");
-
-    expect(response.status).toEqual(200);
-    expect(response.body).toEqual({
-      id: uuid,
-      url,
-    });
-  });
-
-  it("skips existing servers that are in the blacklist", async () => {
-    const blacklistedServerUuid = v4();
-    mockRedisClient.zRange = vi.fn(() => [blacklistedServerUuid, 0]);
-    mockRedisClient.hGet = vi.fn(() => "ws://snickers.test:8080");
-
-    serverBlacklist.set(blacklistedServerUuid, 0);
-
-    const response = await supertest(app).get(endpoint).send();
-
-    expect(response.status).toBe(404);
+    expect(getLowestLoadServer).toHaveBeenCalledOnce();
+    expect(incrProvisionsThisSecond).toHaveBeenCalledOnce();
+    expect(response.status).toHaveBeenCalledOnce();
+    expect(response.status).toHaveBeenCalledWith(200);
+    expect(response.json).toHaveBeenCalledOnce();
+    expect(response.json).toHaveBeenCalledWith(server);
+    expect(runtimeState.provisionCount).toBe(1);
+    expect(runtimeState.lastProvisionedServer).toBe(server.id);
   });
 });
