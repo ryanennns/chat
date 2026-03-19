@@ -123,4 +123,17 @@ export const startIntervals = () => {
       void websocketServerFactory(v4());
     }
   }, 15_000);
+  setInterval(async () => {
+    const ratioKeys = await redisClient.zRangeByScore(serversRatioKey, "-inf", "+inf");
+    const timeoutKeys = await redisClient.zRangeByScore(serversTimeoutKey, "-inf", "+inf");
+
+    ratioKeys.forEach(key => {
+      if (timeoutKeys.includes(key)) {
+        return;
+      }
+
+      removeServerFromRedis(key);
+    })
+
+  }, 1000);
 };

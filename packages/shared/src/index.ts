@@ -41,6 +41,8 @@ export const removeServerFromRedis = async (serverId: string) => {
   await redisClient.del(redisServerKeyFactory(serverId));
   await redisClient.zRem(serversClientCountKey, serverId);
   await redisClient.zRem(serversTimeoutKey, serverId);
+  await redisClient.zRem(serversChatRoomsCountKey, serverId);
+  await redisClient.zRem(serversRatioKey, serverId);
 
   redisClient.destroy();
 };
