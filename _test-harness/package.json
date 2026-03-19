@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "node --env-file=../.env --watch --max-old-space-size=8192 index.ts",
+    "dev:tmux": "bash ./scripts/run-dev-tmux.sh",
     "start": "node index.ts"
   }
 }

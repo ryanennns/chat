@@ -111,10 +111,6 @@ export const healthChecks = async () => {
   });
 };
 
-export let pps = 0;
-export const isSurge = () => pps > PPS_SURGE_THRESHOLD;
-export let provisionsThisSecond = 0;
-export const incrProvisionsThisSecond = () => provisionsThisSecond++;
 async function spawnProcess() {
   const keys = await redisClient.zRangeByScore(
     serversRatioKey,
@@ -151,6 +147,16 @@ export async function cleanupDeadServers() {
   });
 }
 
+export let pps = 0;
+export const isSurge = () => pps > PPS_SURGE_THRESHOLD;
+export let provisionsThisSecond = 0;
+export const incrProvisionsThisSecond = () => provisionsThisSecond++;
+const updatePps = () => {
+  pps = provisionsThisSecond;
+  runtimeState.rps = pps;
+  provisionsThisSecond = 0;
+};
+
 export const startIntervals = () => {
   setInterval(async () => {
     await healthChecks();
@@ -165,8 +171,6 @@ export const startIntervals = () => {
     await cleanupDeadServers();
   }, 1000);
   setInterval(() => {
-    pps = provisionsThisSecond;
-    runtimeState.rps = pps;
-    provisionsThisSecond = 0;
+    updatePps();
   }, 1000);
 };

@@ -21,7 +21,7 @@ export interface TerminalUiSnapshot {
   lastRemovedServer: string | null;
   optimalDistribution: number;
   provisionCount: number;
-  rps: number;
+  pps: number;
   serverLoads: Array<[string, number]>;
   status: string;
   timedOutServers: string[];
@@ -73,7 +73,7 @@ class LoadBalancerTerminalUi {
     lastRemovedServer: null,
     optimalDistribution: 0,
     provisionCount: 0,
-    rps: 0,
+    pps: 0,
     serverLoads: [],
     status: "starting",
     timedOutServers: [],
@@ -297,7 +297,7 @@ class LoadBalancerTerminalUi {
       this.metricsBox.setContent(
         [
           `provision reqs    ${this.snapshot.provisionCount}`,
-          `rps               ${this.snapshot.rps}`,
+          `pps               ${this.snapshot.pps}`,
           `current reqs      ${this.snapshot.currentRequests}`,
           `total servers     ${this.snapshot.totalServers}`,
           `total clients     ${this.snapshot.totalClients}`,
