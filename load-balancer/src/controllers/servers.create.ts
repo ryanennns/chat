@@ -1,6 +1,7 @@
 import express from "express";
 import { v4 } from "uuid";
 import { childServerMap, websocketServerFactory } from "../utils.ts";
+import { debugLog } from "@chat/shared";
 
 export const createServer = async (
   req: express.Request,
@@ -17,6 +18,7 @@ export const createServer = async (
 
     return;
   }
+  debugLog(`created new server ${serverId}`);
 
   childServerMap.set(serverId, factoryResponse.child);
 

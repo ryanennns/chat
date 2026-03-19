@@ -1,9 +1,16 @@
 import { childServerMap } from "../utils.ts";
 import express from "express";
+import { debugLog } from "@chat/shared";
 
 export const deleteServer = (req: express.Request, res: express.Response) => {
   const array = Array.from(childServerMap);
   array.sort(() => 0.5 - Math.random());
+
+  if (!array.length) {
+    res.send({
+      message: "no servers to delete",
+    });
+  }
 
   const [serverId, process] = array[0];
 
@@ -19,6 +26,7 @@ export const deleteServer = (req: express.Request, res: express.Response) => {
 
   process.kill();
 
+  debugLog(`killed server ${serverId}`);
   res.send({
     message: `killed server ${serverId}`,
   });

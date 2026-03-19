@@ -15,6 +15,9 @@ import {
 } from "@chat/shared";
 import { v4 } from "uuid";
 
+const SOCKETS_PER_CHAT_ROOM_NEW_SERVER_THRESHOLD = 350;
+const PPS_SURGE_THRESHOLD = 40;
+
 const wssServerTimeoutMs: number = Number(
   process.env.SERVER_TIMEOUT_MS ?? 1_000,
 );
@@ -68,9 +71,6 @@ export async function redistributeLoad() {
       )
     ) {
       const redistributeBy = serverScoreMap.score - Math.floor(optimal);
-      debugLog(
-        `${serverScoreMap.score}, ${numberOfClients}, ${serverConnectionsMap.length}, ${redistributeBy}`,
-      );
       runtimeState.lastRedistribution = {
         amount: redistributeBy,
         serverId: serverScoreMap.value,
@@ -112,11 +112,15 @@ export const healthChecks = async () => {
 };
 
 export let pps = 0;
-export const isSurge = () => pps > 50;
+export const isSurge = () => pps > PPS_SURGE_THRESHOLD;
 export let provisionsThisSecond = 0;
 export const incrProvisionsThisSecond = () => provisionsThisSecond++;
 async function spawnProcess() {
-  const keys = await redisClient.zRangeByScore(serversRatioKey, 400, "+inf");
+  const keys = await redisClient.zRangeByScore(
+    serversRatioKey,
+    SOCKETS_PER_CHAT_ROOM_NEW_SERVER_THRESHOLD,
+    "+inf",
+  );
 
   if (keys.length) {
     debugLog("spawning new process");
