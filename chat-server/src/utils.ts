@@ -77,13 +77,13 @@ export const flushRoom = (room: Room, callback: () => void = () => {}) => {
       }
 
       if (socket.readyState === WebSocket.OPEN) {
-        callback();
         if (redistributeBy > 0) {
           socket.send(JSON.stringify(redistributeMessageFactory()));
           redistributeBy--;
         } else {
           socket.send(message);
         }
+        callback();
       }
     }
 
