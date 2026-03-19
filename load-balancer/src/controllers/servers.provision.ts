@@ -1,10 +1,7 @@
-import {
-  redisServerKeyFactory,
-  serversClientCountKey,
-  serversRatioKey,
-} from "@chat/shared";
+import { redisServerKeyFactory, serversRatioKey } from "@chat/shared";
 import { redisClient, runtimeState, serverBlacklist } from "../utils.ts";
 import express from "express";
+import { incrProvisionsThisSecond } from "../intervals.ts";
 
 export const provisionServer = async (
   req: express.Request,
@@ -14,6 +11,8 @@ export const provisionServer = async (
   let id: string | null = null;
   let url: string | null = null;
   while (i < 5) {
+    incrProvisionsThisSecond();
+
     id = (await redisClient.zRange(serversRatioKey, 0, 0))[0];
 
     if (!id || serverBlacklist.has(id)) {

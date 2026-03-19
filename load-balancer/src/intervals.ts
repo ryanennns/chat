@@ -34,7 +34,8 @@ const shouldRedistribute = (
   return (
     distribution > optimalDistribution &&
     distribution - optimalDistribution > 1 &&
-    distribution / optimalDistribution > redistributeThreshold
+    distribution / optimalDistribution > redistributeThreshold &&
+    !isSurge()
   );
 };
 
@@ -85,7 +86,8 @@ export async function redistributeLoad() {
 }
 
 export const healthChecks = async () => {
-  const cutoff = Date.now() - wssServerTimeoutMs;
+  const now = Date.now();
+  const cutoff = now - wssServerTimeoutMs;
   const timedOutServers = await redisClient.zRangeByScore(
     serversTimeoutKey,
     0,
@@ -93,14 +95,16 @@ export const healthChecks = async () => {
   );
   runtimeState.timedOutServers = timedOutServers;
 
-  timedOutServers.forEach(
-    (serverId) =>
-      serverBlacklist.get(serverId) ??
-      serverBlacklist.set(serverId, Date.now()),
-  );
+  timedOutServers.forEach((serverId) => {
+    if (!serverBlacklist.has(serverId)) {
+      console.log("setting");
+      serverBlacklist.set(serverId, now);
+    }
+  });
 
   serverBlacklist.forEach((timeout, server) => {
-    if (Date.now() - timeout > wssBlacklistRemovalTimeoutMs) {
+    if (now - timeout > wssBlacklistRemovalTimeoutMs) {
+      console.log("removing");
       void removeServerFromRedis(server);
       serverBlacklist.delete(server);
       runtimeState.lastRemovedServer = server;
@@ -108,32 +112,56 @@ export const healthChecks = async () => {
   });
 };
 
+export let pps = 0;
+export const isSurge = () => pps > 50;
+export let provisionsThisSecond = 0;
+export const incrProvisionsThisSecond = () => provisionsThisSecond++;
+async function spawnProcess() {
+  const keys = await redisClient.zRangeByScore(serversRatioKey, 400, "+inf");
+
+  if (keys.length) {
+    debugLog("spawning new process");
+    void websocketServerFactory(v4());
+  }
+}
+
+async function cleanupDeadServers() {
+  const ratioKeys = await redisClient.zRangeByScore(
+    serversRatioKey,
+    "-inf",
+    "+inf",
+  );
+  const timeoutKeys = await redisClient.zRangeByScore(
+    serversTimeoutKey,
+    "-inf",
+    "+inf",
+  );
+
+  ratioKeys.forEach((key) => {
+    if (timeoutKeys.includes(key)) {
+      return;
+    }
+
+    removeServerFromRedis(key);
+  });
+}
+
 export const startIntervals = () => {
   setInterval(async () => {
     await healthChecks();
-  }, 100);
+  }, 500);
   setInterval(async () => {
     await redistributeLoad();
   }, 1500);
   setInterval(async () => {
-    const keys = await redisClient.zRangeByScore(serversRatioKey, 400, "+inf");
-
-    if (keys.length) {
-      console.log("spawning new process");
-      void websocketServerFactory(v4());
-    }
+    await spawnProcess();
   }, 15_000);
   setInterval(async () => {
-    const ratioKeys = await redisClient.zRangeByScore(serversRatioKey, "-inf", "+inf");
-    const timeoutKeys = await redisClient.zRangeByScore(serversTimeoutKey, "-inf", "+inf");
-
-    ratioKeys.forEach(key => {
-      if (timeoutKeys.includes(key)) {
-        return;
-      }
-
-      removeServerFromRedis(key);
-    })
-
+    await cleanupDeadServers();
+  }, 1000);
+  setInterval(() => {
+    pps = provisionsThisSecond;
+    runtimeState.rps = pps;
+    provisionsThisSecond = 0;
   }, 1000);
 };

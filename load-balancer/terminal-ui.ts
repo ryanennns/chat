@@ -15,11 +15,13 @@ interface RedistributionSnapshot {
 
 export interface TerminalUiSnapshot {
   blacklistedServers: Array<[string, number]>;
+  currentRequests: number;
   lastProvisionedServer: string | null;
   lastRedistribution: RedistributionSnapshot | null;
   lastRemovedServer: string | null;
   optimalDistribution: number;
   provisionCount: number;
+  rps: number;
   serverLoads: Array<[string, number]>;
   status: string;
   timedOutServers: string[];
@@ -62,11 +64,13 @@ class LoadBalancerTerminalUi {
   private readonly startedAt = Date.now();
   private snapshot: TerminalUiSnapshot = {
     blacklistedServers: [],
+    currentRequests: 0,
     lastProvisionedServer: null,
     lastRedistribution: null,
     lastRemovedServer: null,
     optimalDistribution: 0,
     provisionCount: 0,
+    rps: 0,
     serverLoads: [],
     status: "starting",
     timedOutServers: [],
@@ -273,6 +277,8 @@ class LoadBalancerTerminalUi {
       this.metricsBox.setContent(
         [
           `provision reqs    ${this.snapshot.provisionCount}`,
+          `rps               ${this.snapshot.rps}`,
+          `current reqs      ${this.snapshot.currentRequests}`,
           `total servers     ${this.snapshot.totalServers}`,
           `total clients     ${this.snapshot.totalClients}`,
           `optimal load      ${this.snapshot.optimalDistribution.toFixed(2)}`,

@@ -13,6 +13,7 @@ await subscriptionClient.connect();
 export const serverBlacklist = new Map<string, number>();
 
 export const runtimeState = {
+  currentRequests: 0,
   lastProvisionedServer: null as string | null,
   lastRedistribution: null as {
     amount: number;
@@ -22,6 +23,7 @@ export const runtimeState = {
   lastRemovedServer: null as string | null,
   optimalDistribution: 0,
   provisionCount: 0,
+  rps: 0,
   serverLoads: [] as Array<[string, number]>,
   timedOutServers: [] as string[],
   totalClients: 0,
