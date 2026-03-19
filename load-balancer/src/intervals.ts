@@ -9,9 +9,11 @@ import {
   debugLog,
   redisRedistributeChannelFactory,
   removeServerFromRedis,
+  serversChatRoomsCountKey,
   serversClientCountKey,
   serversHeartbeatKey,
   serversRatioKey,
+  serversSocketWritesPerSecondKey,
 } from "@chat/shared";
 import { v4 } from "uuid";
 
@@ -44,9 +46,17 @@ const shouldRedistribute = (
 };
 
 export async function redistributeLoad() {
-  const serverConnectionsMap = (
-    await redisClient.zRangeWithScores(serversClientCountKey, 0, -1)
-  ).filter((serverConnection) => !serverBlacklist.has(serverConnection.value));
+  const [serverConnections, serverWritesPerSecond] = await Promise.all([
+    redisClient.zRangeWithScores(serversClientCountKey, 0, -1),
+    redisClient.zRangeWithScores(serversSocketWritesPerSecondKey, 0, -1),
+  ]);
+  const serverConnectionsMap = serverConnections.filter(
+    (serverConnection) => !serverBlacklist.has(serverConnection.value),
+  );
+  runtimeState.serverMps = serverWritesPerSecond.map(({ value, score }) => [
+    value,
+    score,
+  ]);
   runtimeState.lastRedistribution = null;
   const numberOfClients = serverConnectionsMap.reduce(
     (a, b) => Number(a) + Number(b.score),
@@ -86,7 +96,15 @@ export async function redistributeLoad() {
   }
 }
 
-export const healthChecks = async () => {
+interface ServerState {
+  clients: number;
+  chatRooms: number;
+  socketWritesPerSecond: number;
+}
+
+const serverStates: Record<string, ServerState> = {};
+
+const detectTimedOutServers = async () => {
   const now = Date.now();
   const cutoff = now - wssServerTimeoutMs;
   const timedOutServers = await redisClient.zRangeByScore(
@@ -101,14 +119,68 @@ export const healthChecks = async () => {
       serverBlacklist.set(serverId, now);
     }
   });
+};
 
+const purgeBlacklistedServers = () => {
   serverBlacklist.forEach((timeout, server) => {
-    if (now - timeout > wssBlacklistRemovalTimeoutMs) {
+    if (Date.now() - timeout > wssBlacklistRemovalTimeoutMs) {
       void removeServerFromRedis(server);
       serverBlacklist.delete(server);
+      childServerMap.get(server)?.kill(0);
+      childServerMap.delete(server);
       runtimeState.lastRemovedServer = server;
     }
   });
+};
+
+const defaultServerState = {
+  clients: 0,
+  chatRooms: 0,
+  socketWritesPerSecond: 0,
+};
+export const healthChecks = async () => {
+  // socket writes
+  const socketWrites = await redisClient.zRangeWithScores(
+    serversSocketWritesPerSecondKey,
+    0,
+    -1,
+  );
+  socketWrites.forEach(({ value: id, score: writesPerSecond }) => {
+    serverStates[id] =
+      serverStates[id] === undefined
+        ? { ...defaultServerState }
+        : serverStates[id];
+    serverStates[id].socketWritesPerSecond = writesPerSecond;
+  });
+  // clients
+  const clients = await redisClient.zRangeWithScores(
+    serversClientCountKey,
+    0,
+    -1,
+  );
+  clients.forEach(({ value: id, score: clients }) => {
+    serverStates[id] =
+      serverStates[id] === undefined
+        ? { ...defaultServerState }
+        : serverStates[id];
+    serverStates[id].clients = clients;
+  });
+  // chat rooms
+  const chatRooms = await redisClient.zRangeWithScores(
+    serversChatRoomsCountKey,
+    0,
+    -1,
+  );
+  chatRooms.forEach(({ value: id, score: chatRooms }) => {
+    serverStates[id] =
+      serverStates[id] === undefined
+        ? { ...defaultServerState }
+        : serverStates[id];
+    serverStates[id].chatRooms = chatRooms;
+  });
+
+  await detectTimedOutServers();
+  purgeBlacklistedServers();
 };
 
 export const spawnServer = async () => {
@@ -121,8 +193,8 @@ export const spawnServer = async () => {
 
 const spawnServerIfRequired = async () => {
   const keys = await redisClient.zRangeByScore(
-    serversRatioKey,
-    SOCKETS_PER_CHAT_ROOM_NEW_SERVER_THRESHOLD,
+    serversSocketWritesPerSecondKey,
+    100_000,
     "+inf",
   );
 
@@ -177,9 +249,6 @@ export const startIntervals = () => {
     await healthChecks();
   }, 500);
   setInterval(async () => {
-    await redistributeLoad();
-  }, 1500);
-  setInterval(async () => {
     await spawnServerIfRequired();
   }, 15_000);
   setInterval(async () => {
@@ -187,5 +256,8 @@ export const startIntervals = () => {
   }, 1000);
   setInterval(() => {
     updatePps();
+  }, 1000);
+  setInterval(async () => {
+    await redistributeLoad();
   }, 1000);
 };

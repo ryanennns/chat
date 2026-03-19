@@ -16,6 +16,7 @@ interface RedistributionSnapshot {
 interface ChildServerSnapshot {
   clients: number;
   isKilled: boolean;
+  mps: number;
   pid?: number;
   serverId: string;
 }
@@ -30,6 +31,7 @@ export interface TerminalUiSnapshot {
   optimalDistribution: number;
   provisionCount: number;
   pps: number;
+  serverMps: Array<[string, number]>;
   serverLoads: Array<[string, number]>;
   status: string;
   timedOutServers: string[];
@@ -38,7 +40,7 @@ export interface TerminalUiSnapshot {
 }
 
 const MAX_SERVER_LINES = 10;
-const LIST_UUID_LENGTH = 8;
+const LIST_UUID_LENGTH = 5;
 
 const timestamp = () =>
   new Date().toLocaleTimeString("en-US", {
@@ -83,6 +85,7 @@ class LoadBalancerTerminalUi {
     optimalDistribution: 0,
     provisionCount: 0,
     pps: 0,
+    serverMps: [],
     serverLoads: [],
     status: "starting",
     timedOutServers: [],
@@ -320,7 +323,7 @@ class LoadBalancerTerminalUi {
       const serverLines = [...this.snapshot.childServers]
         .sort((left, right) => left.serverId.localeCompare(right.serverId))
         .slice(0, MAX_SERVER_LINES)
-        .map(({ clients, isKilled, pid, serverId }) => {
+        .map(({ clients, isKilled, mps, pid, serverId }) => {
           const blacklistAge = this.snapshot.blacklistedServers.find(
             ([blacklistedServerId]) => blacklistedServerId === serverId,
           )?.[1];
@@ -330,12 +333,12 @@ class LoadBalancerTerminalUi {
               : isKilled
                 ? "yellow-fg"
                 : "green-fg";
-          const state = isKilled ? "killed" : "running";
+          const state = isKilled ? "❌" : "✅";
           const pidValue = pid ?? "-";
           const blacklistSuffix =
             blacklistAge === undefined ? "" : `  blacklisted ${blacklistAge}s`;
 
-          return `{${color}}id:${serverId} status:${state} pid:${pidValue} clients:${clients}${blacklistSuffix}{/${color}}`;
+          return `{${color}}id:${truncateListUuid(serverId)} status:${state} pid:${pidValue} clients:${clients} mps:${mps}${blacklistSuffix}{/${color}}`;
         });
 
       this.serverBox.setContent(
