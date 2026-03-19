@@ -8,8 +8,10 @@ import { v4 } from "uuid";
 import { childServerMap, serverBlacklist } from "@load-balancer/src/utils.js";
 import {
   redisRedistributeChannelFactory,
+  serversClientCountKey,
   serversRatioKey,
   serversHeartbeatKey,
+  serversSocketWritesPerSecondKey,
 } from "@chat/shared";
 import { ChildProcessWithoutNullStreams } from "node:child_process";
 
@@ -50,15 +52,30 @@ describe("intervals", () => {
       mockRedisClient.publish = vi.fn();
       const uuid = v4();
 
-      mockRedisClient.zRangeWithScores = vi.fn(() => {
-        return [
+      mockRedisClient.zRangeWithScores = vi
+        .fn()
+        .mockResolvedValueOnce([
           { value: v4(), score: 0 },
           { value: uuid, score: 10 },
-        ];
-      });
+        ])
+        .mockResolvedValueOnce([{ value: uuid, score: 3 }])
+        .mockResolvedValueOnce([]);
 
       await redistributeLoad();
 
+      expect(mockRedisClient.zRangeWithScores).toHaveBeenCalledTimes(2);
+      expect(mockRedisClient.zRangeWithScores).toHaveBeenNthCalledWith(
+        1,
+        serversClientCountKey,
+        0,
+        -1,
+      );
+      expect(mockRedisClient.zRangeWithScores).toHaveBeenNthCalledWith(
+        2,
+        serversSocketWritesPerSecondKey,
+        0,
+        -1,
+      );
       expect(mockRedisClient.publish).toHaveBeenCalledExactlyOnceWith(
         redisRedistributeChannelFactory(uuid),
         "5",
@@ -75,13 +92,14 @@ describe("intervals", () => {
       const healthyServerTwo = v4();
       const deadServer = v4();
 
-      mockRedisClient.zRangeWithScores = vi.fn(() => {
-        return [
+      mockRedisClient.zRangeWithScores = vi
+        .fn()
+        .mockResolvedValueOnce([
           { value: healthyServerOne, score: 500 },
           { value: healthyServerTwo, score: 500 },
           { value: deadServer, score: 500 },
-        ];
-      });
+        ])
+        .mockResolvedValueOnce([]);
 
       serverBlacklist.set(deadServer, Date.now());
 
@@ -97,6 +115,7 @@ describe("intervals", () => {
 
       const uuid = v4();
       mockRedisClient.zRangeByScore = vi.fn(() => [uuid]);
+      mockRedisClient.zRangeWithScores = vi.fn(() => []);
 
       await healthChecks();
 
