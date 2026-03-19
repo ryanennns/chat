@@ -9,7 +9,7 @@ export const redistributeChannel = "wss-redistribute";
 export const serversClientCountKey = "servers:clients";
 export const serversChatRoomsCountKey = "servers:chats";
 export const serversRatioKey = "servers:load";
-export const serversTimeoutKey = "servers:timeout";
+export const serversHeartbeatKey = "servers:heartbeat";
 export const redisRedistributeChannelFactory = (serverId: string) =>
   `${serverId}-${redistributeChannel}`;
 export const redisServerKeyFactory = (serverId: string) => `server:${serverId}`;
@@ -26,7 +26,7 @@ export const addServerToRedis = async (server: Server) => {
     score: 0,
     value: server.id,
   });
-  await redisClient.zAdd(serversTimeoutKey, {
+  await redisClient.zAdd(serversHeartbeatKey, {
     score: Date.now(),
     value: server.id,
   });
@@ -40,7 +40,7 @@ export const removeServerFromRedis = async (serverId: string) => {
 
   await redisClient.del(redisServerKeyFactory(serverId));
   await redisClient.zRem(serversClientCountKey, serverId);
-  await redisClient.zRem(serversTimeoutKey, serverId);
+  await redisClient.zRem(serversHeartbeatKey, serverId);
   await redisClient.zRem(serversChatRoomsCountKey, serverId);
   await redisClient.zRem(serversRatioKey, serverId);
 

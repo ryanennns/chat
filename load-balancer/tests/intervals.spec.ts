@@ -9,7 +9,7 @@ import { childServerMap, serverBlacklist } from "@load-balancer/src/utils.js";
 import {
   redisRedistributeChannelFactory,
   serversRatioKey,
-  serversTimeoutKey,
+  serversHeartbeatKey,
 } from "@chat/shared";
 import { ChildProcessWithoutNullStreams } from "node:child_process";
 
@@ -143,7 +143,7 @@ describe("intervals", () => {
         ...[serversRatioKey, "-inf", "+inf"],
       );
       expect(mockRedisClient.zRangeByScore).toHaveBeenCalledWith(
-        serversTimeoutKey,
+        serversHeartbeatKey,
         "-inf",
         "+inf",
       );

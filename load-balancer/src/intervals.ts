@@ -10,7 +10,7 @@ import {
   redisRedistributeChannelFactory,
   removeServerFromRedis,
   serversClientCountKey,
-  serversTimeoutKey,
+  serversHeartbeatKey,
   serversRatioKey,
 } from "@chat/shared";
 import { v4 } from "uuid";
@@ -90,7 +90,7 @@ export const healthChecks = async () => {
   const now = Date.now();
   const cutoff = now - wssServerTimeoutMs;
   const timedOutServers = await redisClient.zRangeByScore(
-    serversTimeoutKey,
+    serversHeartbeatKey,
     0,
     cutoff,
   );
@@ -139,7 +139,7 @@ export async function cleanupDeadServers() {
     "+inf",
   );
   const timeoutKeys = await redisClient.zRangeByScore(
-    serversTimeoutKey,
+    serversHeartbeatKey,
     "-inf",
     "+inf",
   );

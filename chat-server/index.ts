@@ -15,7 +15,7 @@ import {
   redisRedistributeChannelFactory,
   removeServerFromRedis,
   serversClientCountKey,
-  serversTimeoutKey,
+  serversHeartbeatKey,
 } from "@chat/shared";
 import {
   ClientSocket,
@@ -188,16 +188,10 @@ setInterval(() => {
 }, 1000);
 
 setInterval(async () => {
-  await redisClient.zAdd(serversTimeoutKey, {
+  await redisClient.zAdd(serversHeartbeatKey, {
     score: Date.now(),
     value: serverId,
   });
-  if (((await redisClient.zScore(serversClientCountKey, serverId)) ?? 0) < 0) {
-    await redisClient.zAdd(serversClientCountKey, {
-      score: 0,
-      value: serverId,
-    });
-  }
 }, 1000);
 
 const registerSocket = async (
