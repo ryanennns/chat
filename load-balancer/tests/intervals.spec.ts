@@ -4,13 +4,14 @@ import {
   redistributeLoad,
 } from "@load-balancer/src/intervals.js";
 import { v4 } from "uuid";
-import { redisClient, serverBlacklist } from "@load-balancer/src/utils.js";
+import { serverBlacklist } from "@load-balancer/src/utils.js";
 import { redisRedistributeChannelFactory } from "@chat/shared";
 
 const mockRedisClient = vi.hoisted(() => ({
   connect: vi.fn(),
   hGet: vi.fn(),
   publish: vi.fn(),
+  subscribe: vi.fn(),
   zRange: vi.fn(),
   zRangeByScore: vi.fn(),
   zRangeWithScores: vi.fn(),
@@ -53,7 +54,7 @@ describe("intervals", () => {
 
       expect(mockRedisClient.publish).toHaveBeenCalledExactlyOnceWith(
         redisRedistributeChannelFactory(uuid),
-        "7.5",
+        "5",
       );
     });
 

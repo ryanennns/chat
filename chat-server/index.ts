@@ -5,7 +5,8 @@ import {
   ChatPayload,
   redisServerKeyFactory,
   RegistrationPayload,
-  serversChatsCountKey,
+  serversChatRoomsCountKey,
+  serversRatioKey,
   WebSocketMessage,
 } from "@chat/shared";
 import {
@@ -28,14 +29,33 @@ import {
 const redisClient = createClient();
 await redisClient.connect();
 
-const incrementChatCount = () =>
-  void redisClient.zIncrBy(serversChatsCountKey, 1, serverId);
-const decrementChatCount = () =>
-  void redisClient.zIncrBy(serversChatsCountKey, -1, serverId);
-const incrementClientCount = () =>
+let chatRoomCount = 0;
+let clientCount = 0;
+const setServersRatio = () =>
+  void redisClient.zAdd(serversRatioKey, {
+    score: clientCount / chatRoomCount,
+    value: serverId,
+  });
+const incrementChatCount = () => {
+  void redisClient.zIncrBy(serversChatRoomsCountKey, 1, serverId);
+  setServersRatio();
+  chatRoomCount++;
+};
+const decrementChatCount = () => {
+  void redisClient.zIncrBy(serversChatRoomsCountKey, -1, serverId);
+  setServersRatio();
+  chatRoomCount--;
+};
+const incrementClientCount = () => {
   void redisClient.zIncrBy(serversClientCountKey, 1, serverId);
-const decrementClientCount = () =>
+  setServersRatio();
+  clientCount++;
+};
+const decrementClientCount = () => {
   void redisClient.zIncrBy(serversClientCountKey, -1, serverId);
+  setServersRatio();
+  clientCount--;
+};
 
 const removeSelfFromRedis = async () => {
   void removeServerFromRedis(serverId);

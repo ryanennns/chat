@@ -9,6 +9,7 @@ const mockRedisClient = vi.hoisted(() => ({
   connect: vi.fn(),
   zRange: vi.fn(),
   hGet: vi.fn(),
+  subscribe: vi.fn(),
 }));
 
 vi.mock("redis", () => {
