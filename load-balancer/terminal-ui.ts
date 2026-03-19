@@ -13,8 +13,16 @@ interface RedistributionSnapshot {
   timestamp: string;
 }
 
+interface ChildServerSnapshot {
+  clients: number;
+  isKilled: boolean;
+  pid?: number;
+  serverId: string;
+}
+
 export interface TerminalUiSnapshot {
   blacklistedServers: Array<[string, number]>;
+  childServers: ChildServerSnapshot[];
   currentRequests: number;
   lastProvisionedServer: string | null;
   lastRedistribution: RedistributionSnapshot | null;
@@ -67,6 +75,7 @@ class LoadBalancerTerminalUi {
   private readonly startedAt = Date.now();
   private snapshot: TerminalUiSnapshot = {
     blacklistedServers: [],
+    childServers: [],
     currentRequests: 0,
     lastProvisionedServer: null,
     lastRedistribution: null,
@@ -308,27 +317,31 @@ class LoadBalancerTerminalUi {
         ].join("\n"),
       );
 
-      const serverLines = [...this.snapshot.serverLoads]
-        .sort(
-          (left, right) =>
-            right[1] - left[1] || left[0].localeCompare(right[0]),
-        )
+      const serverLines = [...this.snapshot.childServers]
+        .sort((left, right) => left.serverId.localeCompare(right.serverId))
         .slice(0, MAX_SERVER_LINES)
-        .map(([serverId, load]) => {
+        .map(({ clients, isKilled, pid, serverId }) => {
           const blacklistAge = this.snapshot.blacklistedServers.find(
             ([blacklistedServerId]) => blacklistedServerId === serverId,
           )?.[1];
-          const color = blacklistAge === undefined ? "green-fg" : "red-fg";
+          const color =
+            blacklistAge !== undefined
+              ? "red-fg"
+              : isKilled
+                ? "yellow-fg"
+                : "green-fg";
+          const state = isKilled ? "killed" : "running";
+          const pidValue = pid ?? "-";
           const blacklistSuffix =
             blacklistAge === undefined ? "" : `  blacklisted ${blacklistAge}s`;
 
-          return `{${color}}${serverId}  ${load}${blacklistSuffix}{/${color}}`;
+          return `{${color}}id:${serverId} status:${state} pid:${pidValue} clients:${clients}${blacklistSuffix}{/${color}}`;
         });
 
       this.serverBox.setContent(
         serverLines.length > 0
           ? serverLines.join("\n")
-          : "No registered websocket servers.",
+          : "No child servers tracked.",
       );
 
       this.screen.render();

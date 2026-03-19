@@ -2,7 +2,7 @@ import { createClient } from "redis";
 import { terminalUi } from "../terminal-ui.ts";
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
 import path from "node:path";
-import { redisServerKeyFactory, type Server } from "@chat/shared";
+import { debugLog, redisServerKeyFactory, type Server } from "@chat/shared";
 
 export const redisClient = createClient();
 await redisClient.connect();
@@ -42,11 +42,13 @@ export const shutdown = async () => {
   }
 };
 
-await subscriptionClient.subscribe("panic", () => {
-  // void websocketServerFactory(v4());
+await subscriptionClient.subscribe("panic", (server: string) => {
+  debugLog(`server id ${server} is timing out...`);
 });
 
 setInterval(() => {
+  const clientsByServerId = new Map(runtimeState.serverLoads);
+
   terminalUi.setSnapshot({
     blacklistedServers: [...serverBlacklist.entries()].map(
       ([serverId, startedAt]) => [
@@ -54,6 +56,12 @@ setInterval(() => {
         Math.floor((Date.now() - startedAt) / 1000),
       ],
     ),
+    childServers: [...childServerMap.entries()].map(([serverId, child]) => ({
+      clients: clientsByServerId.get(serverId) ?? 0,
+      isKilled: child.killed,
+      pid: child.pid,
+      serverId,
+    })),
     status: "running",
     ...runtimeState,
   });

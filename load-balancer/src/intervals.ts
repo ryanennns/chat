@@ -111,7 +111,15 @@ export const healthChecks = async () => {
   });
 };
 
-async function spawnProcess() {
+export const spawnServer = async () => {
+  const output = await websocketServerFactory(v4());
+
+  if (output) {
+    childServerMap.set(output.server.id, output.child);
+  }
+};
+
+const spawnServerIfRequired = async () => {
   const keys = await redisClient.zRangeByScore(
     serversRatioKey,
     SOCKETS_PER_CHAT_ROOM_NEW_SERVER_THRESHOLD,
@@ -120,9 +128,9 @@ async function spawnProcess() {
 
   if (keys.length) {
     debugLog("spawning new process");
-    void websocketServerFactory(v4());
+    await spawnServer();
   }
-}
+};
 
 export async function cleanupDeadServers() {
   const ratioKeys = await redisClient.zRangeByScore(
@@ -145,6 +153,13 @@ export async function cleanupDeadServers() {
     childServerMap.get(key)?.kill(0);
     childServerMap.delete(key);
   });
+
+  childServerMap.forEach((process, key) => {
+    if (process.killed) {
+      void removeServerFromRedis(key);
+      childServerMap.delete(key);
+    }
+  });
 }
 
 export let pps = 0;
@@ -165,7 +180,7 @@ export const startIntervals = () => {
     await redistributeLoad();
   }, 1500);
   setInterval(async () => {
-    await spawnProcess();
+    await spawnServerIfRequired();
   }, 15_000);
   setInterval(async () => {
     await cleanupDeadServers();

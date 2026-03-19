@@ -1,5 +1,6 @@
 import type {
   ChatPayload,
+  RedistributionPayload,
   WebSocketMessage,
   RegistrationPayload,
 } from "@chat/shared";
@@ -79,6 +80,7 @@ const buildMessage = (chatRoomId: string) => {
 const runChatter = async (chatterId: number) => {
   const label = `chatter-${chatterId + 1}`;
   const chatRoomId = `chat-room-${(chatterId % CHAT_ROOM_COUNT) + 1}`;
+  let nextServerUrl: string | undefined;
 
   while (true) {
     let socket: WebSocket | null = null;
@@ -86,16 +88,26 @@ const runChatter = async (chatterId: number) => {
     let sender: Promise<void> | undefined;
 
     try {
-      const server = await provisionServer();
-      console.log(`[${label}] provisioned ${server.id} at ${server.url}`);
+      const connectionUrl = nextServerUrl ?? (await provisionServer()).url;
+      const connectionSource =
+        nextServerUrl === undefined ? "provisioned" : "redirected";
+      nextServerUrl = undefined;
+      console.log(
+        `[${label}] ${connectionSource} connection at ${connectionUrl}`,
+      );
 
       await new Promise<void>((resolve, reject) => {
-        socket = new WebSocket(server.url);
+        socket = new WebSocket(connectionUrl);
 
         socket.addEventListener("message", (message) => {
           const payload = JSON.parse(message.data) as WebSocketMessage<unknown>;
 
           if (payload.type === "redistribute") {
+            const redistributionPayload =
+              payload.payload as RedistributionPayload;
+            if (redistributionPayload.redirect) {
+              nextServerUrl = redistributionPayload.redirect;
+            }
             socket?.close();
           }
         });
