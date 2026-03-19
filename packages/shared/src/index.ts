@@ -6,7 +6,7 @@ export interface Server {
 }
 
 export const redistributeChannel = "wss-redistribute";
-export const serversClientCountKey = "servers:load";
+export const serversClientCountKey = "servers:clients";
 export const serversChatRoomsCountKey = "servers:chats";
 export const serversRatioKey = "servers:load";
 export const serversTimeoutKey = "servers:timeout";

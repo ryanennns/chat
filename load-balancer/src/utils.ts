@@ -42,7 +42,7 @@ export const shutdown = async () => {
 };
 
 await subscriptionClient.subscribe("panic", () => {
-  void websocketServerFactory(v4());
+  // void websocketServerFactory(v4());
 });
 
 setInterval(() => {

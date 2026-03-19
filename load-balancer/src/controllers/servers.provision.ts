@@ -5,6 +5,7 @@ import {
 } from "@chat/shared";
 import { redisClient, runtimeState, serverBlacklist } from "../utils.ts";
 import express from "express";
+import { incrementRequests } from "@load-balancer/src/intervals.ts";
 
 export const provisionServer = async (
   req: express.Request,
@@ -38,6 +39,7 @@ export const provisionServer = async (
     return;
   }
 
+  incrementRequests();
   res.status(200).json({
     id,
     url,

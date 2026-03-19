@@ -1,11 +1,18 @@
-import { redisClient, runtimeState, serverBlacklist } from "./utils.ts";
+import {
+  redisClient,
+  runtimeState,
+  serverBlacklist,
+  websocketServerFactory,
+} from "./utils.ts";
 import {
   debugLog,
   redisRedistributeChannelFactory,
   removeServerFromRedis,
   serversClientCountKey,
   serversTimeoutKey,
+  serversRatioKey,
 } from "@chat/shared";
+import { v4 } from "uuid";
 
 const wssServerTimeoutMs: number = Number(
   process.env.SERVER_TIMEOUT_MS ?? 1_000,
@@ -45,7 +52,7 @@ export async function redistributeLoad() {
     value,
     score,
   ]);
-  runtimeState.totalClients = numberOfClients;
+  runtimeState.totalClients = Number(numberOfClients.toFixed(2));
   runtimeState.totalServers = serverConnectionsMap.length;
   const optimal = numberOfClients / serverConnectionsMap.length;
   runtimeState.optimalDistribution = Number.isFinite(optimal) ? optimal : 0;
@@ -108,4 +115,12 @@ export const startIntervals = () => {
   setInterval(async () => {
     await redistributeLoad();
   }, 1500);
+  setInterval(async () => {
+    const keys = await redisClient.zRangeByScore(serversRatioKey, 400, "+inf");
+
+    if (keys.length) {
+      console.log("spawning new process");
+      void websocketServerFactory(v4());
+    }
+  }, 15_000);
 };

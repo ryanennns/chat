@@ -31,9 +31,10 @@ await redisClient.connect();
 
 let chatRoomCount = 0;
 let clientCount = 0;
+const ratio = () => (chatRoomCount > 0 ? clientCount / chatRoomCount : 1);
 const setServersRatio = () =>
   void redisClient.zAdd(serversRatioKey, {
-    score: clientCount / chatRoomCount,
+    score: ratio(),
     value: serverId,
   });
 const incrementChatCount = () => {
@@ -97,6 +98,7 @@ void addSelfToRedis();
 
 const rooms: Map<string, Room> = new Map();
 
+setServersRatio();
 wss.on("connection", async (socket) => {
   const client = socket as ClientSocket;
   client.id = v4();
