@@ -1,47 +1,25 @@
-import { redisServerKeyFactory, serversRatioKey } from "@chat/shared";
-import { redisClient, runtimeState, serverBlacklist } from "../utils.ts";
+import { runtimeState } from "../utils.ts";
 import express from "express";
-import { incrProvisionsThisSecond } from "../intervals.ts";
+import { incrProvisionsThisSecond } from "@load-balancer/src/intervals.ts";
+import { getLowestLoadServer } from "@chat/shared";
 
 export const provisionServer = async (
   req: express.Request,
   res: express.Response,
 ) => {
-  let i = 0;
-  let id: string | null = null;
-  let url: string | null = null;
-  while (i < 5) {
-    incrProvisionsThisSecond();
+  incrProvisionsThisSecond();
+  let server = await getLowestLoadServer();
 
-    id = (await redisClient.zRange(serversRatioKey, 0, 0))[0];
-
-    if (!id || serverBlacklist.has(id)) {
-      id = null;
-      i++;
-      continue;
-    }
-
-    url = await redisClient.hGet(redisServerKeyFactory(id), "url");
-
-    if (!url) {
-      id = null;
-      i++;
-      continue;
-    }
-
-    break;
-  }
-
-  if (!id || !url) {
+  if (!server) {
     res.sendStatus(404);
     return;
   }
 
   res.status(200).json({
-    id,
-    url,
+    id: server.id,
+    url: server.url,
   });
 
   runtimeState.provisionCount++;
-  runtimeState.lastProvisionedServer = id;
+  runtimeState.lastProvisionedServer = server.id;
 };
