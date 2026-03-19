@@ -30,6 +30,7 @@ export interface TerminalUiSnapshot {
 }
 
 const MAX_SERVER_LINES = 10;
+const LIST_UUID_LENGTH = 8;
 
 const timestamp = () =>
   new Date().toLocaleTimeString("en-US", {
@@ -49,6 +50,8 @@ const formatDuration = (startedAt: number) => {
     .map((value) => value.toString().padStart(2, "0"))
     .join(":");
 };
+
+const truncateListUuid = (value: string) => value.slice(0, LIST_UUID_LENGTH);
 
 class LoadBalancerTerminalUi {
   private enabled: boolean;
@@ -266,6 +269,23 @@ class LoadBalancerTerminalUi {
     }
 
     try {
+      const redistributionLines =
+        this.snapshot.lastRedistribution === null
+          ? ["redistribute     -"]
+          : [
+              `redistribute     ${this.snapshot.lastRedistribution.amount} from ${truncateListUuid(this.snapshot.lastRedistribution.serverId)}`,
+              `                 at ${this.snapshot.lastRedistribution.timestamp}`,
+            ];
+      const timedOutLines =
+        this.snapshot.timedOutServers.length === 0
+          ? ["timed out        -"]
+          : [
+              "timed out",
+              ...this.snapshot.timedOutServers.map(
+                (serverId) => `                 ${truncateListUuid(serverId)}`,
+              ),
+            ];
+
       this.headerBox.setContent(
         [
           `{bold}${this.runtimeInfo.serviceName}{/bold}  {cyan-fg}${this.snapshot.status}{/cyan-fg}`,
@@ -283,12 +303,8 @@ class LoadBalancerTerminalUi {
           `total clients     ${this.snapshot.totalClients}`,
           `optimal load      ${this.snapshot.optimalDistribution.toFixed(2)}`,
           `blacklisted       ${this.snapshot.blacklistedServers.length}`,
-          this.snapshot.lastRedistribution === null
-            ? "redistribute     -"
-            : `redistribute     ${this.snapshot.lastRedistribution.amount} from ${this.snapshot.lastRedistribution.serverId} at ${this.snapshot.lastRedistribution.timestamp}`,
-          this.snapshot.timedOutServers.length === 0
-            ? "timed out        -"
-            : `timed out        ${this.snapshot.timedOutServers.join(", ")}`,
+          ...redistributionLines,
+          ...timedOutLines,
         ].join("\n"),
       );
 
