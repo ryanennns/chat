@@ -1,5 +1,6 @@
 import {
   debugLog,
+  getLowestLoadServer,
   RedistributionPayload,
   WebSocketMessage,
 } from "@chat/shared";
@@ -12,11 +13,24 @@ export const EVENTLOOP_TIMEOUT_THRESHOLD_MS = 15.0;
 export const REDISTRIBUTE_BY_FACTOR = 0.22;
 export const MESSAGE_BATCH_SIZE = 10;
 
-export const redistributePayload: WebSocketMessage<RedistributionPayload> = {
-  type: "redistribute",
-  payload: {
-    reason: "new-wss",
-  },
+const redistributeMessageFactory = async (): Promise<
+  WebSocketMessage<RedistributionPayload>
+> => {
+  const message: WebSocketMessage<RedistributionPayload> = {
+    type: "redistribute",
+    payload: {
+      reason: "new-wss",
+      redirect: undefined,
+    },
+  };
+
+  const server = await getLowestLoadServer();
+
+  if (server) {
+    message.payload.redirect = server.url;
+  }
+
+  return message;
 };
 
 export interface ClientSocket extends WebSocket {
@@ -61,7 +75,7 @@ export const flushRoom = (room: Room) => {
 
       if (socket.readyState === WebSocket.OPEN) {
         if (redistributeBy > 0) {
-          socket.send(JSON.stringify(redistributePayload));
+          socket.send(JSON.stringify(redistributeMessageFactory()));
           redistributeBy--;
         } else {
           socket.send(message);
