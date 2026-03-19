@@ -22,7 +22,7 @@ export const runtimeState = {
   lastRemovedServer: null as string | null,
   optimalDistribution: 0,
   provisionCount: 0,
-  rps: 0,
+  pps: 0,
   serverLoads: [] as Array<[string, number]>,
   timedOutServers: [] as string[],
   totalClients: 0,
