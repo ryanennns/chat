@@ -3,7 +3,6 @@ import { terminalUi } from "../terminal-ui.ts";
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
 import path from "node:path";
 import { redisServerKeyFactory, type Server } from "@chat/shared";
-import { v4 } from "uuid";
 
 export const redisClient = createClient();
 await redisClient.connect();
