@@ -98,14 +98,12 @@ export const healthChecks = async () => {
 
   timedOutServers.forEach((serverId) => {
     if (!serverBlacklist.has(serverId)) {
-      console.log("setting");
       serverBlacklist.set(serverId, now);
     }
   });
 
   serverBlacklist.forEach((timeout, server) => {
     if (now - timeout > wssBlacklistRemovalTimeoutMs) {
-      console.log("removing");
       void removeServerFromRedis(server);
       serverBlacklist.delete(server);
       runtimeState.lastRemovedServer = server;
