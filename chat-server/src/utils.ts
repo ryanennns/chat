@@ -55,7 +55,7 @@ export const redistributeListener = (message: string) => {
   debugLog(`over by ${message}; nuking ${redistributeBy} clients`);
 };
 
-export const flushRoom = (room: Room) => {
+export const flushRoom = (room: Room, callback: () => void = () => {}) => {
   if (room.queue.length < 1) {
     room.running = false;
 
@@ -77,6 +77,7 @@ export const flushRoom = (room: Room) => {
       }
 
       if (socket.readyState === WebSocket.OPEN) {
+        callback();
         if (redistributeBy > 0) {
           socket.send(JSON.stringify(redistributeMessageFactory()));
           redistributeBy--;

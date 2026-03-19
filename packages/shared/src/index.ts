@@ -10,6 +10,7 @@ export const serversClientCountKey = "servers:clients";
 export const serversChatRoomsCountKey = "servers:chats";
 export const serversRatioKey = "servers:load";
 export const serversHeartbeatKey = "servers:heartbeat";
+export const serversSocketWritesPerSecondKey = "servers:mps";
 export const redisRedistributeChannelFactory = (serverId: string) =>
   `${serverId}-${redistributeChannel}`;
 export const redisServerKeyFactory = (serverId: string) => `server:${serverId}`;
@@ -30,6 +31,10 @@ export const addServerToRedis = async (server: Server) => {
     score: Date.now(),
     value: server.id,
   });
+  await redisClient.zAdd(serversSocketWritesPerSecondKey, {
+    score: 0,
+    value: server.id,
+  });
 
   redisClient.destroy();
 };
@@ -43,6 +48,7 @@ export const removeServerFromRedis = async (serverId: string) => {
   await redisClient.zRem(serversHeartbeatKey, serverId);
   await redisClient.zRem(serversChatRoomsCountKey, serverId);
   await redisClient.zRem(serversRatioKey, serverId);
+  await redisClient.zRem(serversSocketWritesPerSecondKey, serverId);
 
   redisClient.destroy();
 };

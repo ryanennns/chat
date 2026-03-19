@@ -6,6 +6,7 @@ import {
   redisServerKeyFactory,
   RegistrationPayload,
   serversChatRoomsCountKey,
+  serversSocketWritesPerSecondKey,
   serversRatioKey,
   WebSocketMessage,
 } from "@chat/shared";
@@ -98,6 +99,14 @@ void addSelfToRedis();
 
 const rooms: Map<string, Room> = new Map();
 
+let socketWritesThisSecond = 0;
+setInterval(() => {
+  void redisClient.zAdd(serversSocketWritesPerSecondKey, {
+    score: socketWritesThisSecond,
+    value: serverId,
+  });
+  socketWritesThisSecond = 0;
+}, 1000);
 setServersRatio();
 wss.on("connection", async (socket) => {
   const client = socket as ClientSocket;
@@ -162,15 +171,16 @@ await subscriber.subscribe(
 
 let lastRequestedHelp = 0;
 const lastFivePerformanceNumbers = new Array(5).fill(0);
-const shouldPanic = () => {
-  return (
-    lastFivePerformanceNumbers.reduce((a, b) => a + b) /
-      lastFivePerformanceNumbers.length >
-      EVENTLOOP_TIMEOUT_THRESHOLD_MS &&
-    Date.now() - lastRequestedHelp > REQUEST_HELP_EVERY_MS
-  );
-};
 const updatePerformanceNumbers = async (timeout: number) => {
+  const shouldPanic = () => {
+    return (
+      lastFivePerformanceNumbers.reduce((a, b) => a + b) /
+        lastFivePerformanceNumbers.length >
+        EVENTLOOP_TIMEOUT_THRESHOLD_MS &&
+      Date.now() - lastRequestedHelp > REQUEST_HELP_EVERY_MS
+    );
+  };
+
   lastFivePerformanceNumbers.shift();
   lastFivePerformanceNumbers.push(timeout);
   if (shouldPanic()) {
@@ -221,7 +231,7 @@ const registerSocket = async (
 
       room.queue.push(message);
       if (!room.running) {
-        flushRoom(room);
+        flushRoom(room, () => socketWritesThisSecond++);
       }
     });
   }
