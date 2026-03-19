@@ -22,9 +22,11 @@ import {
   ClientSocket,
   EVENTLOOP_TIMEOUT_THRESHOLD_MS,
   flushRoom,
+  redistributeBy,
   redistributeListener,
   REQUEST_HELP_EVERY_MS,
   Room,
+  setRedistributeBy,
 } from "./src/utils.js";
 
 const redisClient = createClient();
@@ -105,6 +107,13 @@ setInterval(() => {
     score: socketWritesThisSecond,
     value: serverId,
   });
+  if (socketWritesThisSecond > 75_000) {
+    void redisClient.publish(
+      "message",
+      JSON.stringify({ message: `nuking ${clientCount * 0.1}`, serverId }),
+    );
+    setRedistributeBy(redistributeBy + clientCount * 0.1);
+  }
   socketWritesThisSecond = 0;
 }, 1000);
 setServersRatio();

@@ -97,9 +97,9 @@ export async function redistributeLoad() {
 }
 
 interface ServerState {
-  clients: number;
-  chatRooms: number;
-  socketWritesPerSecond: number;
+  clients: Array<number>;
+  chatRooms: Array<number>;
+  socketWritesPerSecond: Array<number>;
 }
 
 const serverStates: Record<string, ServerState> = {};
@@ -134,9 +134,9 @@ const purgeBlacklistedServers = () => {
 };
 
 const defaultServerState = {
-  clients: 0,
-  chatRooms: 0,
-  socketWritesPerSecond: 0,
+  clients: Array.from({ length: 10 }).map(() => 0),
+  chatRooms: Array.from({ length: 10 }).map(() => 0),
+  socketWritesPerSecond: Array.from({ length: 10 }).map(() => 0),
 };
 export const healthChecks = async () => {
   // socket writes
@@ -150,7 +150,8 @@ export const healthChecks = async () => {
       serverStates[id] === undefined
         ? { ...defaultServerState }
         : serverStates[id];
-    serverStates[id].socketWritesPerSecond = writesPerSecond;
+    serverStates[id].socketWritesPerSecond.shift();
+    serverStates[id].socketWritesPerSecond.push(writesPerSecond);
   });
   // clients
   const clients = await redisClient.zRangeWithScores(
@@ -163,7 +164,8 @@ export const healthChecks = async () => {
       serverStates[id] === undefined
         ? { ...defaultServerState }
         : serverStates[id];
-    serverStates[id].clients = clients;
+    serverStates[id].clients.shift();
+    serverStates[id].clients.push(clients);
   });
   // chat rooms
   const chatRooms = await redisClient.zRangeWithScores(
@@ -176,7 +178,8 @@ export const healthChecks = async () => {
       serverStates[id] === undefined
         ? { ...defaultServerState }
         : serverStates[id];
-    serverStates[id].chatRooms = chatRooms;
+    serverStates[id].chatRooms.shift();
+    serverStates[id].chatRooms.push(chatRooms);
   });
 
   await detectTimedOutServers();
@@ -192,13 +195,19 @@ export const spawnServer = async () => {
 };
 
 const spawnServerIfRequired = async () => {
-  const keys = await redisClient.zRangeByScore(
-    serversSocketWritesPerSecondKey,
-    100_000,
-    "+inf",
-  );
+  const THRESHOLD = 75_000;
+  const result = Object.entries(serverStates)
+    .filter(([_, state]) => {
+      const arr = state.socketWritesPerSecond;
+      if (!arr.length) return false;
 
-  if (keys.length) {
+      const avg = arr.reduce((sum, v) => sum + v, 0) / arr.length;
+
+      return avg > THRESHOLD;
+    })
+    .map(([serverId, state]) => ({ serverId, state }));
+
+  if (result.length) {
     debugLog("spawning new process");
     await spawnServer();
   }
@@ -247,10 +256,10 @@ const updatePps = () => {
 export const startIntervals = () => {
   setInterval(async () => {
     await healthChecks();
-  }, 500);
+  }, 1000);
   setInterval(async () => {
     await spawnServerIfRequired();
-  }, 15_000);
+  }, 1000);
   setInterval(async () => {
     await cleanupDeadServers();
   }, 1000);

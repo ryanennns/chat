@@ -9,6 +9,11 @@ await redisClient.connect();
 export const subscriptionClient = createClient();
 await subscriptionClient.connect();
 
+void subscriptionClient.subscribe("message", (message) => {
+  const payload = JSON.parse(message);
+  debugLog(`${payload.serverId} - ${payload.message}`);
+});
+
 export const serverBlacklist = new Map<string, number>();
 
 export const runtimeState = {
