@@ -1,11 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  cleanupDeadServers,
   healthChecks,
   redistributeLoad,
 } from "@load-balancer/src/intervals.js";
 import { v4 } from "uuid";
-import { serverBlacklist } from "@load-balancer/src/utils.js";
-import { redisRedistributeChannelFactory } from "@chat/shared";
+import { childServerMap, serverBlacklist } from "@load-balancer/src/utils.js";
+import {
+  redisRedistributeChannelFactory,
+  serversRatioKey,
+  serversTimeoutKey,
+} from "@chat/shared";
+import { ChildProcessWithoutNullStreams } from "node:child_process";
 
 const mockRedisClient = vi.hoisted(() => ({
   connect: vi.fn(),
@@ -35,6 +41,7 @@ vi.mock("@chat/shared", async () => {
 
 describe("intervals", () => {
   beforeEach(() => {
+    mockedRemoveServerFromRedis.mockClear();
     serverBlacklist.clear();
   });
 
@@ -115,6 +122,33 @@ describe("intervals", () => {
 
       expect(serverBlacklist.size).toBe(0);
       expect(mockedRemoveServerFromRedis).toHaveBeenCalledOnce();
+    });
+  });
+
+  describe("cleanupDeadServers", () => {
+    it("removes servers that has a ratio key but no timeout key", async () => {
+      const uuid = v4();
+      mockRedisClient.zRangeByScore = vi
+        .fn()
+        .mockResolvedValueOnce([uuid])
+        .mockResolvedValueOnce(["timeout-server-1"]);
+      childServerMap.set(uuid, {
+        kill: vi.fn(),
+      } as unknown as ChildProcessWithoutNullStreams);
+
+      await cleanupDeadServers();
+
+      expect(mockRedisClient.zRangeByScore).toHaveBeenCalledTimes(2);
+      expect(mockRedisClient.zRangeByScore).toHaveBeenCalledWith(
+        ...[serversRatioKey, "-inf", "+inf"],
+      );
+      expect(mockRedisClient.zRangeByScore).toHaveBeenCalledWith(
+        serversTimeoutKey,
+        "-inf",
+        "+inf",
+      );
+      expect(mockedRemoveServerFromRedis).toHaveBeenCalledExactlyOnceWith(uuid);
+      expect(childServerMap.get(uuid)).toBeUndefined();
     });
   });
 });

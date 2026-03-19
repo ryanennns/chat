@@ -1,4 +1,5 @@
 import {
+  childServerMap,
   redisClient,
   runtimeState,
   serverBlacklist,
@@ -125,7 +126,7 @@ async function spawnProcess() {
   }
 }
 
-async function cleanupDeadServers() {
+export async function cleanupDeadServers() {
   const ratioKeys = await redisClient.zRangeByScore(
     serversRatioKey,
     "-inf",
@@ -143,6 +144,8 @@ async function cleanupDeadServers() {
     }
 
     removeServerFromRedis(key);
+    childServerMap.get(key)?.kill(0);
+    childServerMap.delete(key);
   });
 }
 
