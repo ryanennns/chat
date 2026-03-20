@@ -11,12 +11,13 @@ import {
   removeServerFromRedis,
   serversChatRoomsCountKey,
   serversClientCountKey,
+  serversEventLoopTimeoutKey,
   serversHeartbeatKey,
   serversSocketWritesPerSecondKey,
+  ServerState,
 } from "@chat/shared";
 import { v4 } from "uuid";
 
-const SOCKETS_PER_CHAT_ROOM_NEW_SERVER_THRESHOLD = 350;
 const PPS_SURGE_THRESHOLD = 40;
 
 const wssServerTimeoutMs: number = Number(
@@ -27,6 +28,9 @@ const redistributeThreshold = Number(
 );
 const wssBlacklistRemovalTimeoutMs = Number(
   process.env.BLACKLIST_REMOVAL_TIMEOUT_MS ?? 10_000,
+);
+const SOCKET_WRITES_PER_SECOND_THRESHOLD = Number(
+  process.env.SOCKET_WRITES_PER_SECOND_THRESHOLD ?? 66_000,
 );
 
 const shouldRedistribute = (
@@ -95,14 +99,6 @@ export async function redistributeLoad() {
   }
 }
 
-interface ServerState {
-  clients: Array<number>;
-  chatRooms: Array<number>;
-  socketWritesPerSecond: Array<number>;
-}
-
-const serverStates: Record<string, ServerState> = {};
-
 const detectTimedOutServers = async () => {
   const now = Date.now();
   const cutoff = now - wssServerTimeoutMs;
@@ -125,18 +121,26 @@ const purgeBlacklistedServers = () => {
     if (Date.now() - timeout > wssBlacklistRemovalTimeoutMs) {
       void removeServerFromRedis(server);
       serverBlacklist.delete(server);
-      childServerMap.get(server)?.kill(0);
+      childServerMap.get(server)?.process?.kill(0);
       childServerMap.delete(server);
       runtimeState.lastRemovedServer = server;
     }
   });
 };
 
-const defaultServerState = {
-  clients: Array.from({ length: 10 }).map(() => 0),
-  chatRooms: Array.from({ length: 10 }).map(() => 0),
-  socketWritesPerSecond: Array.from({ length: 10 }).map(() => 0),
+const updateServerState = (
+  id: string,
+  key: keyof ServerState,
+  value: number,
+) => {
+  if (!childServerMap.has(id)) {
+    return;
+  }
+
+  childServerMap.get(id)?.state[key]?.shift();
+  childServerMap.get(id)?.state[key]?.push(value);
 };
+
 export const healthChecks = async () => {
   // socket writes
   const socketWrites = await redisClient.zRangeWithScores(
@@ -144,42 +148,35 @@ export const healthChecks = async () => {
     0,
     -1,
   );
-  socketWrites.forEach(({ value: id, score: writesPerSecond }) => {
-    serverStates[id] =
-      serverStates[id] === undefined
-        ? { ...defaultServerState }
-        : serverStates[id];
-    serverStates[id].socketWritesPerSecond.shift();
-    serverStates[id].socketWritesPerSecond.push(writesPerSecond);
-  });
+  socketWrites.forEach(({ value: id, score: writesPerSecond }) =>
+    updateServerState(id, "socketWrites", writesPerSecond),
+  );
   // clients
   const clients = await redisClient.zRangeWithScores(
     serversClientCountKey,
     0,
     -1,
   );
-  clients.forEach(({ value: id, score: clients }) => {
-    serverStates[id] =
-      serverStates[id] === undefined
-        ? { ...defaultServerState }
-        : serverStates[id];
-    serverStates[id].clients.shift();
-    serverStates[id].clients.push(clients);
-  });
+  clients.forEach(({ value: id, score: clients }) =>
+    updateServerState(id, "clients", clients),
+  );
   // chat rooms
   const chatRooms = await redisClient.zRangeWithScores(
     serversChatRoomsCountKey,
     0,
     -1,
   );
-  chatRooms.forEach(({ value: id, score: chatRooms }) => {
-    serverStates[id] =
-      serverStates[id] === undefined
-        ? { ...defaultServerState }
-        : serverStates[id];
-    serverStates[id].chatRooms.shift();
-    serverStates[id].chatRooms.push(chatRooms);
-  });
+  chatRooms.forEach(({ value: id, score: chatRooms }) =>
+    updateServerState(id, "chatRooms", chatRooms),
+  );
+  const timeoutValues = await redisClient.zRangeWithScores(
+    serversEventLoopTimeoutKey,
+    0,
+    -1,
+  );
+  timeoutValues.forEach(({ value: id, score: timeout }) =>
+    updateServerState(id, "timeouts", timeout),
+  );
 
   await detectTimedOutServers();
   purgeBlacklistedServers();
@@ -189,28 +186,28 @@ export const spawnServer = async () => {
   const output = await websocketServerFactory(v4());
 
   if (output) {
-    childServerMap.set(output.server.id, output.child);
+    childServerMap.set(output.server.id, output);
   }
 };
 
 let lastSpawnedServer = 0;
+
 const spawnServerIfRequired = async () => {
-  const THRESHOLD = 90_000;
-  const result = Object.entries(serverStates)
-    .filter(([_, state]) => {
-      const arr = state.socketWritesPerSecond;
-      if (!arr.length) return false;
+  const result = [...childServerMap.values()].filter((process) => {
+    const arr = process.state.socketWrites;
+    if (!arr.length) {
+      return false;
+    }
 
-      const avg = arr.reduce((sum, v) => sum + v, 0) / arr.length;
+    const avg = arr.reduce((sum, v) => sum + v, 0) / arr.length;
 
-      return avg > THRESHOLD;
-    })
-    .map(([serverId, state]) => ({ serverId, state }));
+    return avg > SOCKET_WRITES_PER_SECOND_THRESHOLD;
+  });
 
   if (result.length && Date.now() - lastSpawnedServer > 10_000) {
     debugLog("spawning new process");
     await spawnServer();
-    lastSpawnedServer = Date.now()
+    lastSpawnedServer = Date.now();
   }
 };
 
@@ -232,12 +229,12 @@ export async function cleanupDeadServers() {
     }
 
     removeServerFromRedis(key);
-    childServerMap.get(key)?.kill(0);
+    childServerMap.get(key)?.process?.kill(0);
     childServerMap.delete(key);
   });
 
-  childServerMap.forEach((process, key) => {
-    if (process.killed) {
+  childServerMap.forEach((server, key) => {
+    if (server.process.killed) {
       void removeServerFromRedis(key);
       childServerMap.delete(key);
     }

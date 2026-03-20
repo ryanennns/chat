@@ -2,7 +2,13 @@ import { createClient } from "redis";
 import { terminalUi } from "../terminal-ui.ts";
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
 import path from "node:path";
-import { debugLog, redisServerKeyFactory, type Server } from "@chat/shared";
+import {
+  debugLog,
+  defaultServerState,
+  redisServerKeyFactory,
+  type Server,
+  ServerState,
+} from "@chat/shared";
 
 export const redisClient = createClient();
 await redisClient.connect();
@@ -68,9 +74,9 @@ setInterval(() => {
     ),
     childServers: [...childServerMap.entries()].map(([serverId, child]) => ({
       clients: clientsByServerId.get(serverId) ?? 0,
-      isKilled: child.killed,
+      isKilled: child.process.killed,
       mps: mpsByServerId.get(serverId) ?? 0,
-      pid: child.pid,
+      pid: child.process.pid,
       serverId,
     })),
     status: "running",
@@ -78,16 +84,16 @@ setInterval(() => {
   });
 }, 1000);
 
-export const childServerMap = new Map<string, ChildProcessWithoutNullStreams>();
+interface ChildProcess {
+  server: Server;
+  process: ChildProcessWithoutNullStreams;
+  state: ServerState;
+}
+
+export const childServerMap = new Map<string, ChildProcess>();
 export const websocketServerFactory = async (
   id: string,
-): Promise<
-  | {
-      server: Server;
-      child: ChildProcessWithoutNullStreams;
-    }
-  | undefined
-> => {
+): Promise<ChildProcess | undefined> => {
   let foundNewServer = false;
   let url: string | undefined = undefined;
   await subscriptionClient.subscribe(
@@ -125,6 +131,7 @@ export const websocketServerFactory = async (
       id,
       url,
     },
-    child,
+    process: child,
+    state: defaultServerState(),
   };
 };

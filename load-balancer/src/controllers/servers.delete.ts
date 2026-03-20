@@ -12,7 +12,7 @@ export const deleteServer = (req: express.Request, res: express.Response) => {
     });
   }
 
-  const [serverId, process] = array[0];
+  const [serverId, server] = array[0];
 
   if (!serverId) {
     res.send({
@@ -24,7 +24,7 @@ export const deleteServer = (req: express.Request, res: express.Response) => {
 
   childServerMap.delete(serverId);
 
-  process.kill();
+  server.process.kill();
 
   debugLog(`killed server ${serverId}`);
   res.send({

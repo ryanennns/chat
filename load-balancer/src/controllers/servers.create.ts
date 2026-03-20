@@ -20,7 +20,7 @@ export const createServer = async (
   }
   debugLog(`created new server ${serverId}`);
 
-  childServerMap.set(serverId, factoryResponse.child);
+  childServerMap.set(serverId, factoryResponse);
 
   res.send(factoryResponse.server);
 

@@ -5,11 +5,25 @@ export interface Server {
   url: string;
 }
 
+export interface ServerState {
+  clients: Array<number>;
+  chatRooms: Array<number>;
+  socketWrites: Array<number>;
+  timeouts: Array<number>;
+}
+export const defaultServerState = () => ({
+  clients: Array.from({ length: 5 }).map(() => 0),
+  chatRooms: Array.from({ length: 5 }).map(() => 0),
+  socketWrites: Array.from({ length: 5 }).map(() => 0),
+  timeouts: Array.from({ length: 5 }).map(() => 0),
+});
+
 export const redistributeChannel = "wss-redistribute";
 export const serversClientCountKey = "servers:clients";
 export const serversChatRoomsCountKey = "servers:chats";
 export const serversHeartbeatKey = "servers:heartbeat";
 export const serversSocketWritesPerSecondKey = "servers:mps";
+export const serversEventLoopTimeoutKey = "servers:event-loop";
 export const redisRedistributeChannelFactory = (serverId: string) =>
   `${serverId}-${redistributeChannel}`;
 export const redisServerKeyFactory = (serverId: string) => `server:${serverId}`;

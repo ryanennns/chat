@@ -11,6 +11,7 @@ import {
   removeServerFromRedis,
   serversChatRoomsCountKey,
   serversClientCountKey,
+  serversEventLoopTimeoutKey,
   serversHeartbeatKey,
   serversSocketWritesPerSecondKey,
   WebSocketMessage,
@@ -157,6 +158,10 @@ const updateMetrics = () => {
     score: clientCount,
     value: serverId,
   });
+  void redisClient.zAdd(serversEventLoopTimeoutKey, {
+    score: lastFiveTimeoutValues[0],
+    value: serverId,
+  });
 };
 
 const offload = () => {
@@ -170,19 +175,19 @@ const offload = () => {
 };
 
 let lastRequestedHelp = 0;
-const lastFiveTimeoutNumbers = new Array(5).fill(0);
+const lastFiveTimeoutValues = new Array(5).fill(0);
 const updateTimeoutNumbers = async (timeout: number) => {
   const shouldPanic = () => {
     return (
-      lastFiveTimeoutNumbers.reduce((a, b) => a + b) /
-        lastFiveTimeoutNumbers.length >
+      lastFiveTimeoutValues.reduce((a, b) => a + b) /
+        lastFiveTimeoutValues.length >
         EVENTLOOP_TIMEOUT_THRESHOLD_MS &&
       Date.now() - lastRequestedHelp > REQUEST_HELP_EVERY_MS
     );
   };
 
-  lastFiveTimeoutNumbers.shift();
-  lastFiveTimeoutNumbers.push(timeout);
+  lastFiveTimeoutValues.shift();
+  lastFiveTimeoutValues.push(timeout);
   if (shouldPanic()) {
     lastRequestedHelp = Date.now();
     debugLog("event loop is blocking! timeout: " + timeout);
