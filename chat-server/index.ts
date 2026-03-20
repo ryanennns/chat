@@ -2,20 +2,18 @@ import { createClient } from "redis";
 import { v4 } from "uuid";
 import { WebSocketServer } from "ws";
 import {
-  ChatPayload,
-  redisServerKeyFactory,
-  RegistrationPayload,
-  serversChatRoomsCountKey,
-  serversSocketWritesPerSecondKey,
-  WebSocketMessage,
-} from "@chat/shared";
-import {
   addServerToRedis,
+  ChatPayload,
   debugLog,
   redisRedistributeChannelFactory,
+  redisServerKeyFactory,
+  RegistrationPayload,
   removeServerFromRedis,
+  serversChatRoomsCountKey,
   serversClientCountKey,
   serversHeartbeatKey,
+  serversSocketWritesPerSecondKey,
+  WebSocketMessage,
 } from "@chat/shared";
 import {
   ClientSocket,
@@ -27,28 +25,17 @@ import {
   Room,
   setRedistributeBy,
 } from "./src/utils.js";
+import {
+  chatRoomCount,
+  clientCount,
+  decrementChatCount,
+  decrementClientCount,
+  incrementChatCount,
+  incrementClientCount,
+} from "./src/state.js";
 
 const redisClient = createClient();
 await redisClient.connect();
-
-let chatRoomCount = 0;
-let clientCount = 0;
-const incrementChatCount = () => {
-  void redisClient.zIncrBy(serversChatRoomsCountKey, 1, serverId);
-  chatRoomCount++;
-};
-const decrementChatCount = () => {
-  void redisClient.zIncrBy(serversChatRoomsCountKey, -1, serverId);
-  chatRoomCount--;
-};
-const incrementClientCount = () => {
-  void redisClient.zIncrBy(serversClientCountKey, 1, serverId);
-  clientCount++;
-};
-const decrementClientCount = () => {
-  void redisClient.zIncrBy(serversClientCountKey, -1, serverId);
-  clientCount--;
-};
 
 const removeSelfFromRedis = async () => {
   void removeServerFromRedis(serverId);
@@ -151,40 +138,28 @@ await subscriber.subscribe(
   redistributeListener,
 );
 
-let lastRequestedHelp = 0;
-const lastFivePerformanceNumbers = new Array(5).fill(0);
-const updatePerformanceNumbers = async (timeout: number) => {
-  const shouldPanic = () => {
-    return (
-      lastFivePerformanceNumbers.reduce((a, b) => a + b) /
-        lastFivePerformanceNumbers.length >
-        EVENTLOOP_TIMEOUT_THRESHOLD_MS &&
-      Date.now() - lastRequestedHelp > REQUEST_HELP_EVERY_MS
-    );
-  };
-
-  lastFivePerformanceNumbers.shift();
-  lastFivePerformanceNumbers.push(timeout);
-  if (shouldPanic()) {
-    lastRequestedHelp = Date.now();
-    debugLog("event loop is blocking! timeout: " + timeout);
-    void redisClient.publish("panic", JSON.stringify({ serverId, timeout }));
-  }
-};
-setInterval(() => {
-  const start = performance.now();
-  setImmediate(() => {
-    const timeout = performance.now() - start;
-    void updatePerformanceNumbers(timeout);
-  });
-}, 1000);
-
 let socketWritesThisSecond = 0;
-const writeMetricsUpdate = async () => {
+const updateMetrics = () => {
+  void redisClient.zAdd(serversHeartbeatKey, {
+    score: Date.now(),
+    value: serverId,
+  });
   void redisClient.zAdd(serversSocketWritesPerSecondKey, {
     score: socketWritesThisSecond,
     value: serverId,
   });
+  socketWritesThisSecond = 0;
+  void redisClient.zAdd(serversChatRoomsCountKey, {
+    score: chatRoomCount,
+    value: serverId,
+  });
+  void redisClient.zAdd(serversClientCountKey, {
+    score: clientCount,
+    value: serverId,
+  });
+};
+
+const offload = () => {
   if (socketWritesThisSecond > 75_000) {
     void redisClient.publish(
       "message",
@@ -192,18 +167,34 @@ const writeMetricsUpdate = async () => {
     );
     setRedistributeBy(redistributeBy + clientCount * 0.1);
   }
-  socketWritesThisSecond = 0;
-  await redisClient.zAdd(serversHeartbeatKey, {
-    score: Date.now(),
-    value: serverId,
-  });
 };
 
-setInterval(async () => {
-  await redisClient.zAdd(serversHeartbeatKey, {
-    score: Date.now(),
-    value: serverId,
-  });
+let lastRequestedHelp = 0;
+const lastFiveTimeoutNumbers = new Array(5).fill(0);
+const updateTimeoutNumbers = async (timeout: number) => {
+  const shouldPanic = () => {
+    return (
+      lastFiveTimeoutNumbers.reduce((a, b) => a + b) /
+        lastFiveTimeoutNumbers.length >
+        EVENTLOOP_TIMEOUT_THRESHOLD_MS &&
+      Date.now() - lastRequestedHelp > REQUEST_HELP_EVERY_MS
+    );
+  };
+
+  lastFiveTimeoutNumbers.shift();
+  lastFiveTimeoutNumbers.push(timeout);
+  if (shouldPanic()) {
+    lastRequestedHelp = Date.now();
+    debugLog("event loop is blocking! timeout: " + timeout);
+    void redisClient.publish("panic", JSON.stringify({ serverId, timeout }));
+  }
+};
+
+setInterval(updateMetrics, 1000);
+setInterval(offload, 500);
+setInterval(() => {
+  const start = performance.now();
+  setImmediate(() => void updateTimeoutNumbers(performance.now() - start));
 }, 1000);
 
 const registerSocket = async (

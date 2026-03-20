@@ -50,7 +50,7 @@ export const shutdown = async () => {
 
 await subscriptionClient.subscribe("panic", (server: string) => {
   const payload = JSON.parse(server);
-  debugLog(`server id ${payload.serverId} is timing out (${payload.timeout})`);
+  debugLog(`server id ${payload.serverId.slice(0, 5)} is timing out (${payload.timeout.toFixed(2)})`);
 });
 
 setInterval(() => {
