@@ -7,6 +7,7 @@ import {
 import { v4 } from "uuid";
 import { childServerMap, serverBlacklist } from "@load-balancer/src/utils.js";
 import {
+  defaultServerState,
   redisRedistributeChannelFactory,
   serversClientCountKey,
   serversHeartbeatKey,
@@ -151,8 +152,16 @@ describe("intervals", () => {
         .mockResolvedValueOnce([uuid])
         .mockResolvedValueOnce(["timeout-server-1"]);
       childServerMap.set(uuid, {
-        kill: vi.fn(),
-      } as unknown as ChildProcessWithoutNullStreams);
+        process: {
+          kill: vi.fn(),
+          killed: false,
+        } as unknown as ChildProcessWithoutNullStreams,
+        server: {
+          id: uuid,
+          url: "ws://localhost:3001",
+        },
+        state: defaultServerState(),
+      });
 
       await cleanupDeadServers();
 

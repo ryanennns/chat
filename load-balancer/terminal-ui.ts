@@ -1,5 +1,6 @@
 /// 100% vibe coded nonsense, idk what happens in here one bit
 import blessed from "blessed";
+import type { ServerState } from "@chat/shared";
 import { format } from "node:util";
 
 interface RuntimeInfo {
@@ -19,6 +20,7 @@ interface ChildServerSnapshot {
   mps: number;
   pid?: number;
   serverId: string;
+  state: ServerState;
 }
 
 export interface TerminalUiSnapshot {
@@ -47,6 +49,15 @@ const timestamp = () =>
     hour12: false,
   });
 
+const formatNumber = (value: number) => value.toFixed(2);
+const formatNumberArray = (values: number[]) =>
+  [...values].reverse().map((value) => Number(formatNumber(value)));
+const formatServerJson = (value: unknown) =>
+  JSON.stringify(value, null, 2)
+    .replaceAll("[\n      ", "[")
+    .replaceAll(",\n      ", ", ")
+    .replaceAll("\n    ]", "]");
+
 const formatDuration = (startedAt: number) => {
   const elapsedSeconds = Math.max(
     0,
@@ -62,7 +73,6 @@ const formatDuration = (startedAt: number) => {
 };
 
 const truncateListUuid = (value: string) => value.slice(0, LIST_UUID_LENGTH);
-
 class LoadBalancerTerminalUi {
   private enabled: boolean;
   private readonly originalConsole = {
@@ -150,12 +160,18 @@ class LoadBalancerTerminalUi {
         top: 4,
         left: "50%",
         width: "50%",
-        height: 13,
-        tags: true,
+        height: "100%-4",
+        tags: false,
         border: "line",
         label: " servers ",
         scrollable: true,
         alwaysScroll: true,
+        mouse: true,
+        keys: true,
+        vi: true,
+        scrollbar: {
+          ch: " ",
+        },
         style: {
           border: {
             fg: "yellow",
@@ -167,7 +183,7 @@ class LoadBalancerTerminalUi {
         parent: this.screen,
         top: 17,
         left: 0,
-        width: "100%",
+        width: "50%",
         height: "100%-17",
         tags: false,
         border: "line",
@@ -198,6 +214,8 @@ class LoadBalancerTerminalUi {
       });
       this.screen.key(["pageup"], () => this.logBox?.scroll(-5));
       this.screen.key(["pagedown"], () => this.logBox?.scroll(5));
+      this.screen.key(["S-pageup"], () => this.serverBox?.scroll(-5));
+      this.screen.key(["S-pagedown"], () => this.serverBox?.scroll(5));
 
       this.patchConsole();
       this.render();
@@ -323,27 +341,31 @@ class LoadBalancerTerminalUi {
       const serverLines = [...this.snapshot.childServers]
         .sort((left, right) => left.serverId.localeCompare(right.serverId))
         .slice(0, MAX_SERVER_LINES)
-        .map(({ clients, isKilled, mps, pid, serverId }) => {
+        .map(({ isKilled, mps, serverId, state }) => {
           const blacklistAge = this.snapshot.blacklistedServers.find(
             ([blacklistedServerId]) => blacklistedServerId === serverId,
           )?.[1];
-          const color =
-            blacklistAge !== undefined
-              ? "red-fg"
-              : isKilled
-                ? "yellow-fg"
-                : "green-fg";
-          const state = isKilled ? "❌" : "✅";
-          const pidValue = pid ?? "-";
-          const blacklistSuffix =
-            blacklistAge === undefined ? "" : `  blacklisted ${blacklistAge}s`;
-
-          return `{${color}}id:${truncateListUuid(serverId)} status:${state} pid:${pidValue} clients:${clients} mps:${mps}${blacklistSuffix}{/${color}}`;
+          return formatServerJson({
+            id: truncateListUuid(serverId),
+            status:
+              blacklistAge !== undefined
+                ? "blacklisted"
+                : isKilled
+                  ? "killed"
+                  : "healthy",
+            mps: Number(formatNumber(mps)),
+            state: {
+              clients: formatNumberArray(state.clients),
+              chatRooms: formatNumberArray(state.chatRooms),
+              socketWrites: formatNumberArray(state.socketWrites),
+              timeouts: formatNumberArray(state.timeouts),
+            },
+          });
         });
 
       this.serverBox.setContent(
         serverLines.length > 0
-          ? serverLines.join("\n")
+          ? serverLines.join("\n\n")
           : "No child servers tracked.",
       );
 

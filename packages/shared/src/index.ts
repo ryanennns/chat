@@ -12,10 +12,10 @@ export interface ServerState {
   timeouts: Array<number>;
 }
 export const defaultServerState = () => ({
-  clients: Array.from({ length: 5 }).map(() => 0),
-  chatRooms: Array.from({ length: 5 }).map(() => 0),
-  socketWrites: Array.from({ length: 5 }).map(() => 0),
-  timeouts: Array.from({ length: 5 }).map(() => 0),
+  clients: Array.from({ length: 100 }).map(() => 0),
+  chatRooms: Array.from({ length: 100 }).map(() => 0),
+  socketWrites: Array.from({ length: 100 }).map(() => 0),
+  timeouts: Array.from({ length: 100 }).map(() => 0),
 });
 
 export const redistributeChannel = "wss-redistribute";

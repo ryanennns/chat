@@ -1,3 +1,4 @@
+import { terminalUi } from "../terminal-ui.ts";
 import {
   childServerMap,
   redisClient,
@@ -199,7 +200,9 @@ const spawnServerIfRequired = async () => {
       return false;
     }
 
-    const avg = arr.reduce((sum, v) => sum + v, 0) / arr.length;
+    const sampleSize = 5;
+    const slice = arr.slice(arr.length, arr.length - sampleSize);
+    const avg = slice.reduce((sum, v) => sum + v, 0) / arr.length;
 
     return avg > SOCKET_WRITES_PER_SECOND_THRESHOLD;
   });
@@ -251,6 +254,30 @@ const updatePps = () => {
   provisionsThisSecond = 0;
 };
 
+const syncTerminalUi = () => {
+  const clientsByServerId = new Map(runtimeState.serverLoads);
+  const mpsByServerId = new Map(runtimeState.serverMps);
+
+  terminalUi.setSnapshot({
+    blacklistedServers: [...serverBlacklist.entries()].map(
+      ([serverId, startedAt]) => [
+        serverId,
+        Math.floor((Date.now() - startedAt) / 1000),
+      ],
+    ),
+    childServers: [...childServerMap.entries()].map(([serverId, child]) => ({
+      clients: clientsByServerId.get(serverId) ?? 0,
+      isKilled: child.process.killed,
+      mps: mpsByServerId.get(serverId) ?? 0,
+      pid: child.process.pid,
+      serverId,
+      state: child.state,
+    })),
+    status: "running",
+    ...runtimeState,
+  });
+};
+
 export const startIntervals = () => {
   setInterval(async () => {
     await healthChecks();
@@ -266,5 +293,8 @@ export const startIntervals = () => {
   }, 1000);
   setInterval(async () => {
     await redistributeLoad();
+  }, 1000);
+  setInterval(() => {
+    syncTerminalUi();
   }, 1000);
 };

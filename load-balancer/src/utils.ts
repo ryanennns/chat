@@ -61,29 +61,6 @@ await subscriptionClient.subscribe("panic", (server: string) => {
   );
 });
 
-setInterval(() => {
-  const clientsByServerId = new Map(runtimeState.serverLoads);
-  const mpsByServerId = new Map(runtimeState.serverMps);
-
-  terminalUi.setSnapshot({
-    blacklistedServers: [...serverBlacklist.entries()].map(
-      ([serverId, startedAt]) => [
-        serverId,
-        Math.floor((Date.now() - startedAt) / 1000),
-      ],
-    ),
-    childServers: [...childServerMap.entries()].map(([serverId, child]) => ({
-      clients: clientsByServerId.get(serverId) ?? 0,
-      isKilled: child.process.killed,
-      mps: mpsByServerId.get(serverId) ?? 0,
-      pid: child.process.pid,
-      serverId,
-    })),
-    status: "running",
-    ...runtimeState,
-  });
-}, 1000);
-
 interface ChildProcess {
   server: Server;
   process: ChildProcessWithoutNullStreams;
