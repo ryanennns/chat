@@ -14,7 +14,7 @@ import {
   serversEventLoopTimeoutKey,
   serversHeartbeatKey,
   serversSocketWritesPerSecondKey,
-  ServerState,
+  type ServerState,
 } from "@chat/shared";
 import { v4 } from "uuid";
 

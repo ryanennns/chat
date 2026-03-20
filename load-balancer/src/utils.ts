@@ -7,7 +7,7 @@ import {
   defaultServerState,
   redisServerKeyFactory,
   type Server,
-  ServerState,
+  type ServerState,
 } from "@chat/shared";
 
 export const redisClient = createClient();
