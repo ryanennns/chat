@@ -96,7 +96,7 @@ export const getLowestLoadServers = async (
   const ids = await redisClient.zRange(
     serversSocketWritesPerSecondKey,
     0,
-    (count ?? 100_000) - 1,
+    (count ?? 10) - 1,
   );
 
   const results: Array<{ id: string; url: string }> = [];
