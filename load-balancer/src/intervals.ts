@@ -193,8 +193,9 @@ export const spawnServer = async () => {
   }
 };
 
+let lastSpawnedServer = 0;
 const spawnServerIfRequired = async () => {
-  const THRESHOLD = 75_000;
+  const THRESHOLD = 90_000;
   const result = Object.entries(serverStates)
     .filter(([_, state]) => {
       const arr = state.socketWritesPerSecond;
@@ -206,9 +207,10 @@ const spawnServerIfRequired = async () => {
     })
     .map(([serverId, state]) => ({ serverId, state }));
 
-  if (result.length) {
+  if (result.length && Date.now() - lastSpawnedServer > 10_000) {
     debugLog("spawning new process");
     await spawnServer();
+    lastSpawnedServer = Date.now()
   }
 };
 
