@@ -11,11 +11,7 @@ vi.mock("redis", () => ({
   createClient: vi.fn(() => mockRedisClient),
 }));
 
-import {
-  getLowestLoadServer,
-  getLowestLoadServers,
-  serversRatioKey,
-} from "./index.js";
+import { getLowestLoadServer, getLowestLoadServers } from "./index.js";
 
 describe("shared redis helpers", () => {
   beforeEach(() => {
@@ -33,11 +29,6 @@ describe("shared redis helpers", () => {
 
       expect(mockRedisClient.connect).toHaveBeenCalledOnce();
       expect(mockRedisClient.zRange).toHaveBeenCalledOnce();
-      expect(mockRedisClient.zRange).toHaveBeenCalledWith(
-        serversRatioKey,
-        0,
-        0,
-      );
       expect(mockRedisClient.hGet).not.toHaveBeenCalled();
       expect(mockRedisClient.destroy).toHaveBeenCalledOnce();
       expect(result).toEqual([]);
@@ -51,11 +42,6 @@ describe("shared redis helpers", () => {
       const result = await getLowestLoadServers(1);
 
       expect(mockRedisClient.zRange).toHaveBeenCalledOnce();
-      expect(mockRedisClient.zRange).toHaveBeenCalledWith(
-        serversRatioKey,
-        0,
-        0,
-      );
       expect(mockRedisClient.hGet).toHaveBeenCalledOnce();
       expect(mockRedisClient.hGet).toHaveBeenCalledWith(
         `server:${serverId}`,
@@ -75,11 +61,6 @@ describe("shared redis helpers", () => {
       const result = await getLowestLoadServers(2);
 
       expect(mockRedisClient.zRange).toHaveBeenCalledOnce();
-      expect(mockRedisClient.zRange).toHaveBeenCalledWith(
-        serversRatioKey,
-        0,
-        1,
-      );
       expect(mockRedisClient.hGet).toHaveBeenCalledTimes(2);
       expect(result).toEqual([
         { id: firstId, url: "ws://one.test:8080" },
@@ -96,11 +77,6 @@ describe("shared redis helpers", () => {
       const result = await getLowestLoadServer();
 
       expect(mockRedisClient.zRange).toHaveBeenCalledOnce();
-      expect(mockRedisClient.zRange).toHaveBeenCalledWith(
-        serversRatioKey,
-        0,
-        99,
-      );
       expect(result).toEqual({
         id: "server-1",
         url: "ws://one.test:8080",

@@ -7,7 +7,6 @@ import {
   RegistrationPayload,
   serversChatRoomsCountKey,
   serversSocketWritesPerSecondKey,
-  serversRatioKey,
   WebSocketMessage,
 } from "@chat/shared";
 import {
@@ -34,30 +33,20 @@ await redisClient.connect();
 
 let chatRoomCount = 0;
 let clientCount = 0;
-const ratio = () => (chatRoomCount > 0 ? clientCount / chatRoomCount : 1);
-const setServersRatio = () =>
-  void redisClient.zAdd(serversRatioKey, {
-    score: ratio(),
-    value: serverId,
-  });
 const incrementChatCount = () => {
   void redisClient.zIncrBy(serversChatRoomsCountKey, 1, serverId);
-  setServersRatio();
   chatRoomCount++;
 };
 const decrementChatCount = () => {
   void redisClient.zIncrBy(serversChatRoomsCountKey, -1, serverId);
-  setServersRatio();
   chatRoomCount--;
 };
 const incrementClientCount = () => {
   void redisClient.zIncrBy(serversClientCountKey, 1, serverId);
-  setServersRatio();
   clientCount++;
 };
 const decrementClientCount = () => {
   void redisClient.zIncrBy(serversClientCountKey, -1, serverId);
-  setServersRatio();
   clientCount--;
 };
 
@@ -101,22 +90,6 @@ void addSelfToRedis();
 
 const rooms: Map<string, Room> = new Map();
 
-let socketWritesThisSecond = 0;
-setInterval(() => {
-  void redisClient.zAdd(serversSocketWritesPerSecondKey, {
-    score: socketWritesThisSecond,
-    value: serverId,
-  });
-  if (socketWritesThisSecond > 75_000) {
-    void redisClient.publish(
-      "message",
-      JSON.stringify({ message: `nuking ${clientCount * 0.1}`, serverId }),
-    );
-    setRedistributeBy(redistributeBy + clientCount * 0.1);
-  }
-  socketWritesThisSecond = 0;
-}, 1000);
-setServersRatio();
 wss.on("connection", async (socket) => {
   const client = socket as ClientSocket;
   client.id = v4();
@@ -205,6 +178,26 @@ setInterval(() => {
     void updatePerformanceNumbers(timeout);
   });
 }, 1000);
+
+let socketWritesThisSecond = 0;
+const writeMetricsUpdate = async () => {
+  void redisClient.zAdd(serversSocketWritesPerSecondKey, {
+    score: socketWritesThisSecond,
+    value: serverId,
+  });
+  if (socketWritesThisSecond > 75_000) {
+    void redisClient.publish(
+      "message",
+      JSON.stringify({ message: `nuking ${clientCount * 0.1}`, serverId }),
+    );
+    setRedistributeBy(redistributeBy + clientCount * 0.1);
+  }
+  socketWritesThisSecond = 0;
+  await redisClient.zAdd(serversHeartbeatKey, {
+    score: Date.now(),
+    value: serverId,
+  });
+};
 
 setInterval(async () => {
   await redisClient.zAdd(serversHeartbeatKey, {

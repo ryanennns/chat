@@ -12,7 +12,6 @@ import {
   serversChatRoomsCountKey,
   serversClientCountKey,
   serversHeartbeatKey,
-  serversRatioKey,
   serversSocketWritesPerSecondKey,
 } from "@chat/shared";
 import { v4 } from "uuid";
@@ -214,8 +213,8 @@ const spawnServerIfRequired = async () => {
 };
 
 export async function cleanupDeadServers() {
-  const ratioKeys = await redisClient.zRangeByScore(
-    serversRatioKey,
+  const loadKeys = await redisClient.zRangeByScore(
+    serversSocketWritesPerSecondKey,
     "-inf",
     "+inf",
   );
@@ -225,7 +224,7 @@ export async function cleanupDeadServers() {
     "+inf",
   );
 
-  ratioKeys.forEach((key) => {
+  loadKeys.forEach((key) => {
     if (timeoutKeys.includes(key)) {
       return;
     }

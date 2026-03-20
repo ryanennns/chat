@@ -8,7 +8,6 @@ export interface Server {
 export const redistributeChannel = "wss-redistribute";
 export const serversClientCountKey = "servers:clients";
 export const serversChatRoomsCountKey = "servers:chats";
-export const serversRatioKey = "servers:load";
 export const serversHeartbeatKey = "servers:heartbeat";
 export const serversSocketWritesPerSecondKey = "servers:mps";
 export const redisRedistributeChannelFactory = (serverId: string) =>
@@ -47,7 +46,6 @@ export const removeServerFromRedis = async (serverId: string) => {
   await redisClient.zRem(serversClientCountKey, serverId);
   await redisClient.zRem(serversHeartbeatKey, serverId);
   await redisClient.zRem(serversChatRoomsCountKey, serverId);
-  await redisClient.zRem(serversRatioKey, serverId);
   await redisClient.zRem(serversSocketWritesPerSecondKey, serverId);
 
   redisClient.destroy();
@@ -95,7 +93,11 @@ export const getLowestLoadServers = async (
   const redisClient = createClient();
   await redisClient.connect();
 
-  const ids = await redisClient.zRange(serversRatioKey, 0, (count ?? 100) - 1);
+  const ids = await redisClient.zRange(
+    serversSocketWritesPerSecondKey,
+    0,
+    (count ?? 100_000) - 1,
+  );
 
   const results: Array<{ id: string; url: string }> = [];
 
