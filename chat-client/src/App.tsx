@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import "./App.css";
 import type { ClientMessage } from "@chat/shared";
+import { Monitor } from "./Monitor.tsx";
 
 interface ProvisionedServer {
   id: string;
@@ -21,6 +22,7 @@ const MAX_MESSAGES = 100;
 function App() {
   const socketRef = useRef<WebSocket | null>(null);
   const messageIdRef = useRef(0);
+  const [view, setView] = useState<"chat" | "monitor">("chat");
   const [chatRoomId, setChatRoomId] = useState("chat-room-1");
   const [serverUrl, setServerUrl] = useState("");
   const [status, setStatus] = useState("Idle");
@@ -125,37 +127,63 @@ function App() {
 
   return (
     <main className="app">
-      <h1>Chat Client</h1>
-      <button onClick={connect} type="button">
-        Request WSS Server
-      </button>
-      <p>Status: {status}</p>
-      {serverUrl && <p>Server URL: {serverUrl}</p>}
-      <div className="chat-box">
-        <input
-          type="text"
-          value={chatRoomId}
-          onChange={(event) => setChatRoomId(event.target.value)}
-          placeholder="Enter chat room ID"
-        />
+      <div className="nav">
+        <h1>Chat Client</h1>
+        <div className="nav-tabs">
+          <button
+            type="button"
+            className={view === "chat" ? "nav-tab nav-tab--active" : "nav-tab"}
+            onClick={() => setView("chat")}
+          >
+            chat
+          </button>
+          <button
+            type="button"
+            className={
+              view === "monitor" ? "nav-tab nav-tab--active" : "nav-tab"
+            }
+            onClick={() => setView("monitor")}
+          >
+            monitor
+          </button>
+        </div>
       </div>
-      <div className="chat-box">
-        <input
-          type="text"
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          placeholder="Enter a message"
-        />
-        <button onClick={sendChatMessage} type="button">
-          Send
-        </button>
-      </div>
-      <div className="messages">
-        {messages.map((message) => (
-          <p key={message.id}>{message.text}</p>
-        ))}
-      </div>
-      {error && <p className="error">Error: {error}</p>}
+
+      {view === "monitor" && <Monitor />}
+      {view === "chat" && (
+        <>
+          <button onClick={connect} type="button">
+            Request WSS Server
+          </button>
+          <p>Status: {status}</p>
+          {serverUrl && <p>Server URL: {serverUrl}</p>}
+          <div className="chat-box">
+            <input
+              type="text"
+              value={chatRoomId}
+              onChange={(event) => setChatRoomId(event.target.value)}
+              placeholder="Enter chat room ID"
+            />
+          </div>
+          <div className="chat-box">
+            <input
+              type="text"
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              placeholder="Enter a message"
+            />
+            <button onClick={sendChatMessage} type="button">
+              Send
+            </button>
+          </div>
+          <div className="messages">
+            {messages.map((message) => (
+              <p key={message.id}>{message.text}</p>
+            ))}
+          </div>
+          {error && <p className="error">Error: {error}</p>}
+        </>
+      )}
     </main>
   );
 }

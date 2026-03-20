@@ -201,8 +201,8 @@ const spawnServerIfRequired = async () => {
     }
 
     const sampleSize = 5;
-    const slice = arr.slice(arr.length, arr.length - sampleSize);
-    const avg = slice.reduce((sum, v) => sum + v, 0) / arr.length;
+    const slice = arr.slice(arr.length - sampleSize, arr.length);
+    const avg = slice.reduce((sum, v) => sum + v, 0) / slice.length;
 
     return avg > SOCKET_WRITES_PER_SECOND_THRESHOLD;
   });

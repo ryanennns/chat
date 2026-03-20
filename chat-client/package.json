@@ -7,12 +7,16 @@
     "dev": "node --env-file=../.env ./node_modules/vite/bin/vite.js",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "monitor": "node --experimental-transform-types --env-file=../.env monitor.ts"
   },
   "dependencies": {
+    "@types/blessed": "^0.1.27",
+    "blessed": "^0.1.81",
     "prettier": "^3.8.1",
     "react": "^19.2.4",
-    "react-dom": "^19.2.4"
+    "react-dom": "^19.2.4",
+    "redis": "^5.11.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
