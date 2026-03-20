@@ -42,6 +42,7 @@ export interface TerminalUiSnapshot {
 }
 
 const MAX_SERVER_LINES = 10;
+const MAX_RENDERED_ARRAY_ITEMS = 10;
 const LIST_UUID_LENGTH = 5;
 
 const timestamp = () =>
@@ -51,7 +52,9 @@ const timestamp = () =>
 
 const formatNumber = (value: number) => value.toFixed(2);
 const formatNumberArray = (values: number[]) =>
-  [...values].reverse().map((value) => Number(formatNumber(value)));
+  values
+    .slice(0, MAX_RENDERED_ARRAY_ITEMS)
+    .map((value) => Number(formatNumber(value)));
 const formatServerJson = (value: unknown) =>
   JSON.stringify(value, null, 2)
     .replaceAll("[\n      ", "[")
