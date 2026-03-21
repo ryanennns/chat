@@ -225,20 +225,19 @@ export const shouldSpawnNewServer = () => {
   const serverAboveCriticalMass = Boolean(
     serversAboveSocketWriteThreshold.length,
   );
-  const averageSocketLoadAboveSafeAverage =
-    lastFiveSecondsOfTotalLoad.reduce((a, b) => a + b) /
-      lastFiveSecondsOfTotalLoad.length >
-    maxCapacity;
+  const cumulativeSocketLoadAboveSafeAverage = Boolean(
+    lastFiveSecondsOfTotalLoad.filter((n: number) => n > maxCapacity).length,
+  );
 
   debugLog({
     serverStartedRecently,
     serverAboveCriticalMass,
-    averageSocketLoadAboveSafeAverage,
+    averageSocketLoadAboveSafeAverage: cumulativeSocketLoadAboveSafeAverage,
   });
 
   return (
     !serverStartedRecently &&
-    (serverAboveCriticalMass || averageSocketLoadAboveSafeAverage)
+    (serverAboveCriticalMass || cumulativeSocketLoadAboveSafeAverage)
   );
 };
 
