@@ -4,11 +4,8 @@ import {
   redisClient,
   runtimeState,
   serverBlacklist,
-  websocketServerFactory,
 } from "./utils.ts";
 import {
-  debugLog,
-  redisRedistributeChannelFactory,
   removeServerFromRedis,
   serversChatRoomsCountKey,
   serversClientCountKey,
@@ -17,7 +14,6 @@ import {
   serversSocketWritesPerSecondKey,
   type ServerState,
 } from "@chat/shared";
-import { v4 } from "uuid";
 
 const PPS_SURGE_THRESHOLD = 40;
 
@@ -36,72 +32,6 @@ const SOCKET_WRITES_PER_SECOND_CRITICAL_MASS = Number(
 const AVERAGE_INTERVAL_TIMEOUT_CRITICAL_THRESHOLD = Number(
   process.env.AVERAGE_INTERVAL_TIMEOUT_CRITICAL_THRESHOLD ?? 10,
 );
-
-const shouldRedistribute = (
-  distribution: number,
-  totalClients: number,
-  totalServers: number,
-) => {
-  const optimalDistribution = totalClients / totalServers;
-
-  return (
-    distribution > optimalDistribution &&
-    distribution - optimalDistribution > 1 &&
-    distribution / optimalDistribution > redistributeThreshold &&
-    !isSurge()
-  );
-};
-
-export async function redistributeLoad() {
-  const [serverConnections, serverWritesPerSecond] = await Promise.all([
-    redisClient.zRangeWithScores(serversClientCountKey, 0, -1),
-    redisClient.zRangeWithScores(serversSocketWritesPerSecondKey, 0, -1),
-  ]);
-  const serverConnectionsMap = serverConnections.filter(
-    (serverConnection) => !serverBlacklist.has(serverConnection.value),
-  );
-  runtimeState.serverMps = serverWritesPerSecond.map(({ value, score }) => [
-    value,
-    score,
-  ]);
-  runtimeState.lastRedistribution = null;
-  const numberOfClients = serverConnectionsMap.reduce(
-    (a, b) => Number(a) + Number(b.score),
-    0,
-  );
-  serverConnectionsMap.sort((a, b) => b.score - a.score);
-  runtimeState.serverLoads = serverConnectionsMap.map(({ value, score }) => [
-    value,
-    score,
-  ]);
-  runtimeState.totalClients = Number(numberOfClients.toFixed(2));
-  runtimeState.totalServers = serverConnectionsMap.length;
-  const optimal = numberOfClients / serverConnectionsMap.length;
-  runtimeState.optimalDistribution = Number.isFinite(optimal) ? optimal : 0;
-
-  for (const serverScoreMap of serverConnectionsMap) {
-    if (
-      shouldRedistribute(
-        serverScoreMap.score,
-        numberOfClients,
-        serverConnectionsMap.length,
-      )
-    ) {
-      const redistributeBy = serverScoreMap.score - Math.floor(optimal);
-      runtimeState.lastRedistribution = {
-        amount: redistributeBy,
-        serverId: serverScoreMap.value,
-        timestamp: new Date().toLocaleTimeString("en-US", {
-          hour12: false,
-        }),
-      };
-      await redisClient.publish(
-        redisRedistributeChannelFactory(serverScoreMap.value),
-        JSON.stringify(redistributeBy),
-      );
-    }
-  }
-}
 
 const detectTimedOutServers = async () => {
   const now = Date.now();
@@ -184,123 +114,11 @@ export const healthChecks = async () => {
 
   await detectTimedOutServers();
   purgeBlacklistedServers();
+
+  updatePps();
 };
-
-export const spawnServer = async () => {
-  const output = await websocketServerFactory(v4());
-
-  if (output) {
-    childServerMap.set(output.server.id, output);
-  }
-};
-
-let lastSpawnedServer = 0;
-export const shouldSpawnNewServer = () => {
-  const lastFiveSecondsOfSocketWrites: Array<Array<number>> = [
-    ...childServerMap.values(),
-  ].map((process) => {
-    const arr = process.state.socketWrites;
-    const sampleSize = 5;
-    if (!arr.length) {
-      return Array.from({ length: sampleSize }).map(() => 0);
-    }
-
-    return arr.slice(arr.length - sampleSize, arr.length);
-  });
-  const serversAboveSocketWriteThreshold = lastFiveSecondsOfSocketWrites.filter(
-    (n) =>
-      n.reduce((a, b) => a + b) / n.length >
-      SOCKET_WRITES_PER_SECOND_CRITICAL_MASS,
-  );
-
-  const maxCapacity = 100_000 * childServerMap.size;
-  const lastFiveSecondsOfTotalLoad = [];
-  const len = lastFiveSecondsOfSocketWrites[0]?.length ?? 1;
-  for (let i = 0; i < len; i++) {
-    let sum = 0;
-    for (let j = 0; j < lastFiveSecondsOfSocketWrites.length; j++) {
-      sum += lastFiveSecondsOfSocketWrites[j][i];
-    }
-    lastFiveSecondsOfTotalLoad.push(sum);
-  }
-
-  const serverStartedRecently = Date.now() - lastSpawnedServer < 10_000;
-  const serverAboveCriticalMass = Boolean(
-    serversAboveSocketWriteThreshold.length,
-  );
-  const cumulativeSocketLoadAboveSafeAverage = Boolean(
-    lastFiveSecondsOfTotalLoad.reduce((a, b) => a + b) /
-      lastFiveSecondsOfTotalLoad.length >
-    maxCapacity,
-  );
-  const areServersTimingOut = Boolean(
-    [...childServerMap.values()].filter((server) => {
-      const len = server.state.timeouts.length;
-      const lastFive = server.state.timeouts.slice(len - 5, len);
-      return (
-        lastFive.reduce((a, b) => a + b) / lastFive.length >
-        AVERAGE_INTERVAL_TIMEOUT_CRITICAL_THRESHOLD
-      );
-    }).length,
-  );
-
-  const val =
-    !serverStartedRecently &&
-    (serverAboveCriticalMass ||
-      cumulativeSocketLoadAboveSafeAverage ||
-      areServersTimingOut);
-
-  if (val) {
-    debugLog({
-      serverStartedRecently,
-      serverAboveCriticalMass,
-      averageSocketLoadAboveSafeAverage: `${cumulativeSocketLoadAboveSafeAverage} - ${lastFiveSecondsOfTotalLoad.reduce((a, b) => a + b) / lastFiveSecondsOfTotalLoad.length} > ${maxCapacity}`,
-      areServersTimingOut,
-    });
-  }
-  return val;
-};
-
-const spawnServerIfRequired = async () => {
-  if (shouldSpawnNewServer()) {
-    debugLog("spawning new process");
-    await spawnServer();
-    lastSpawnedServer = Date.now();
-  }
-};
-
-export async function cleanupDeadServers() {
-  const loadKeys = await redisClient.zRangeByScore(
-    serversSocketWritesPerSecondKey,
-    "-inf",
-    "+inf",
-  );
-  const timeoutKeys = await redisClient.zRangeByScore(
-    serversHeartbeatKey,
-    "-inf",
-    "+inf",
-  );
-
-  loadKeys.forEach((key) => {
-    if (timeoutKeys.includes(key)) {
-      return;
-    }
-
-    removeServerFromRedis(key);
-    childServerMap.get(key)?.process?.kill(0);
-    childServerMap.delete(key);
-  });
-
-  childServerMap.forEach((server, key) => {
-    if (server.process.killed) {
-      void removeServerFromRedis(key);
-      childServerMap.delete(key);
-    }
-  });
-}
 
 export let pps = 0;
-export const isSurge = () => pps > PPS_SURGE_THRESHOLD;
 export let provisionsThisSecond = 0;
 export const incrProvisionsThisSecond = () => provisionsThisSecond++;
 const updatePps = () => {
@@ -336,20 +154,6 @@ const syncTerminalUi = () => {
 export const startIntervals = () => {
   setInterval(async () => {
     await healthChecks();
-  }, 1000);
-  setInterval(async () => {
-    await spawnServerIfRequired();
-  }, 1000);
-  setInterval(async () => {
-    await cleanupDeadServers();
-  }, 1000);
-  setInterval(() => {
-    updatePps();
-  }, 1000);
-  setInterval(async () => {
-    await redistributeLoad();
-  }, 1000);
-  setInterval(() => {
     syncTerminalUi();
   }, 1000);
 };

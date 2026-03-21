@@ -10,6 +10,7 @@ import {
   type Server,
   type ServerState,
 } from "@chat/shared";
+import { v4 } from "uuid";
 
 export const redisClient = createClient();
 await redisClient.connect();
@@ -65,6 +66,14 @@ await subscriptionClient.subscribe("panic", (server: string) => {
     `server id ${payload.serverId.slice(0, 5)} is timing out (${payload.timeout.toFixed(2)})`,
   );
 });
+
+export const spawnServer = async () => {
+  const output = await websocketServerFactory(v4());
+
+  if (output) {
+    childServerMap.set(output.server.id, output);
+  }
+};
 
 export interface ChildProcess {
   server: Server;

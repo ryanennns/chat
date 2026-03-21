@@ -1,7 +1,7 @@
 import { app } from "./src/app.ts";
 import { terminalUi } from "./terminal-ui.ts";
-import { childServerMap, shutdown } from "./src/utils.ts";
-import { spawnServer, startIntervals } from "./src/intervals.ts";
+import { childServerMap, shutdown, spawnServer } from "./src/utils.ts";
+import { startIntervals } from "./src/intervals.ts";
 
 const port = 3000;
 terminalUi.setRuntimeInfo({ port, serviceName: "load-balancer" });
