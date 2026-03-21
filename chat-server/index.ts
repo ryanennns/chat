@@ -18,13 +18,9 @@ import {
 } from "@chat/shared";
 import {
   ClientSocket,
-  EVENTLOOP_TIMEOUT_THRESHOLD_MS,
   flushRoom,
-  redistributeBy,
   redistributeListener,
-  REQUEST_HELP_EVERY_MS,
   Room,
-  setRedistributeBy,
 } from "./src/utils.js";
 import {
   chatRoomCount,
@@ -33,8 +29,6 @@ import {
   decrementClientCount,
   incrementChatCount,
   incrementClientCount,
-  notTakingNewConnections,
-  setNotTakingNewConnections,
 } from "./src/state.js";
 
 const redisClient = createClient();
@@ -80,14 +74,7 @@ void addSelfToRedis();
 
 const rooms: Map<string, Room> = new Map();
 
-setNotTakingNewConnections(false);
 wss.on("connection", async (socket) => {
-  if (notTakingNewConnections) {
-    socket.close(1);
-
-    return;
-  }
-
   const client = socket as ClientSocket;
   client.id = v4();
 
@@ -173,47 +160,8 @@ const updateMetrics = () => {
   });
 };
 
-const offload = () => {
-  if (socketWritesThisSecond > 75_000) {
-    const multi = Math.min(socketWritesThisSecond / 150_000 / 2, 0.5);
-    void redisClient.publish(
-      "message",
-      JSON.stringify({ message: `nuking ${clientCount * multi}`, serverId }),
-    );
-    setRedistributeBy(redistributeBy + clientCount * multi);
-  }
-};
-
-let lastRequestedHelp = 0;
 const lastFiveTimeoutValues = new Array(5).fill(0);
-const updateTimeoutNumbers = async (timeout: number) => {
-  const shouldPanic = () => {
-    return (
-      lastFiveTimeoutValues.reduce((a, b) => a + b) /
-        lastFiveTimeoutValues.length >
-        EVENTLOOP_TIMEOUT_THRESHOLD_MS &&
-      Date.now() - lastRequestedHelp > REQUEST_HELP_EVERY_MS
-    );
-  };
-
-  lastFiveTimeoutValues.shift();
-  lastFiveTimeoutValues.push(timeout);
-  if (shouldPanic()) {
-    lastRequestedHelp = Date.now();
-    debugLog("event loop is blocking! timeout: " + timeout);
-    void redisClient.publish("panic", JSON.stringify({ serverId, timeout }));
-  }
-};
-
-setInterval(() => {
-  setNotTakingNewConnections(false);
-}, 1_500);
 setInterval(updateMetrics, 1000);
-setInterval(offload, 500);
-setInterval(() => {
-  const start = performance.now();
-  setImmediate(() => void updateTimeoutNumbers(performance.now() - start));
-}, 1000);
 
 const registerSocket = async (
   registrationMessage: WebSocketMessage<RegistrationPayload>,

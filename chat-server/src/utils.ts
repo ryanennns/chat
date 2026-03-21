@@ -49,11 +49,7 @@ export interface Room {
 }
 
 export const redistributeListener = (message: string) => {
-  // redistributeBy = Math.floor(
-  //   Math.max(Number(message) * REDISTRIBUTE_BY_FACTOR, 1),
-  // );
-  // setNotTakingNewConnections(true);
-  debugLog(`over by ${message}; nuking ${redistributeBy} clients`);
+  redistributeBy = Math.floor(Math.max(Number(message) * 0.15, 1));
 };
 
 export const flushRoom = (room: Room, callback: () => void = () => {}) => {
