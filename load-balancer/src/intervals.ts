@@ -30,8 +30,8 @@ const redistributeThreshold = Number(
 const wssBlacklistRemovalTimeoutMs = Number(
   process.env.BLACKLIST_REMOVAL_TIMEOUT_MS ?? 10_000,
 );
-const SOCKET_WRITES_PER_SECOND_THRESHOLD = Number(
-  process.env.SOCKET_WRITES_PER_SECOND_THRESHOLD ?? 66_000,
+const SOCKET_WRITES_PER_SECOND_CRITICAL_MASS = Number(
+  process.env.SOCKET_WRITES_PER_SECOND_THRESHOLD ?? 75_000,
 );
 
 const shouldRedistribute = (
@@ -192,22 +192,58 @@ export const spawnServer = async () => {
 };
 
 let lastSpawnedServer = 0;
-
-const spawnServerIfRequired = async () => {
-  const result = [...childServerMap.values()].filter((process) => {
+export const shouldSpawnNewServer = () => {
+  const lastFiveSecondsOfSocketWrites: Array<Array<number>> = [
+    ...childServerMap.values(),
+  ].map((process) => {
     const arr = process.state.socketWrites;
+    const sampleSize = 5;
     if (!arr.length) {
-      return false;
+      return Array.from({ length: sampleSize }).map(() => 0);
     }
 
-    const sampleSize = 5;
-    const slice = arr.slice(arr.length - sampleSize, arr.length);
-    const avg = slice.reduce((sum, v) => sum + v, 0) / slice.length;
+    return arr.slice(arr.length - sampleSize, arr.length);
+  });
+  const serversAboveSocketWriteThreshold = lastFiveSecondsOfSocketWrites.filter(
+    (n) =>
+      n.reduce((a, b) => a + b) / n.length >
+      SOCKET_WRITES_PER_SECOND_CRITICAL_MASS,
+  );
 
-    return avg > SOCKET_WRITES_PER_SECOND_THRESHOLD;
+  const maxCapacity = 66_000 * childServerMap.size;
+  const lastFiveSecondsOfTotalLoad = [];
+  const len = lastFiveSecondsOfSocketWrites[0].length;
+  for (let i = 0; i < len; i++) {
+    let sum = 0;
+    for (let j = 0; j < lastFiveSecondsOfSocketWrites.length; j++) {
+      sum += lastFiveSecondsOfSocketWrites[j][i];
+    }
+    lastFiveSecondsOfTotalLoad.push(sum);
+  }
+
+  const serverStartedRecently = Date.now() - lastSpawnedServer < 10_000;
+  const serverAboveCriticalMass = Boolean(
+    serversAboveSocketWriteThreshold.length,
+  );
+  const averageSocketLoadAboveSafeAverage =
+    lastFiveSecondsOfTotalLoad.reduce((a, b) => a + b) /
+      lastFiveSecondsOfTotalLoad.length >
+    maxCapacity;
+
+  debugLog({
+    serverStartedRecently,
+    serverAboveCriticalMass,
+    averageSocketLoadAboveSafeAverage,
   });
 
-  if (result.length && Date.now() - lastSpawnedServer > 10_000) {
+  return (
+    !serverStartedRecently &&
+    (serverAboveCriticalMass || averageSocketLoadAboveSafeAverage)
+  );
+};
+
+const spawnServerIfRequired = async () => {
+  if (shouldSpawnNewServer()) {
     debugLog("spawning new process");
     await spawnServer();
     lastSpawnedServer = Date.now();
