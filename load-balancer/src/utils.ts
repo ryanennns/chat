@@ -6,6 +6,7 @@ import {
   debugLog,
   defaultServerState,
   redisServerKeyFactory,
+  removeServerFromRedis,
   type Server,
   type ServerState,
 } from "@chat/shared";
@@ -46,6 +47,10 @@ export const shutdown = async () => {
     terminalUi.destroy();
     await redisClient.quit();
     await subscriptionClient.quit();
+    childServerMap.forEach((server: ChildProcess, id: string) => {
+      void removeServerFromRedis(id);
+      server.process.kill(1);
+    });
   } catch {
     redisClient.destroy();
     subscriptionClient.destroy();
@@ -61,7 +66,7 @@ await subscriptionClient.subscribe("panic", (server: string) => {
   );
 });
 
-interface ChildProcess {
+export interface ChildProcess {
   server: Server;
   process: ChildProcessWithoutNullStreams;
   state: ServerState;

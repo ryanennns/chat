@@ -166,11 +166,12 @@ const updateMetrics = () => {
 
 const offload = () => {
   if (socketWritesThisSecond > 75_000) {
+    const multi = Math.min(socketWritesThisSecond / 150_000 / 2, 0.5);
     void redisClient.publish(
       "message",
-      JSON.stringify({ message: `nuking ${clientCount * 0.1}`, serverId }),
+      JSON.stringify({ message: `nuking ${clientCount * multi}`, serverId }),
     );
-    setRedistributeBy(redistributeBy + clientCount * 0.1);
+    setRedistributeBy(redistributeBy + clientCount * multi);
   }
 };
 

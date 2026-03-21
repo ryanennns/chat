@@ -3,9 +3,14 @@ import {
   cleanupDeadServers,
   healthChecks,
   redistributeLoad,
+  shouldSpawnNewServer,
 } from "@load-balancer/src/intervals.js";
 import { v4 } from "uuid";
-import { childServerMap, serverBlacklist } from "@load-balancer/src/utils.js";
+import {
+  ChildProcess,
+  childServerMap,
+  serverBlacklist,
+} from "@load-balancer/src/utils.js";
 import {
   defaultServerState,
   redisRedistributeChannelFactory,
@@ -176,6 +181,63 @@ describe("intervals", () => {
       );
       expect(mockedRemoveServerFromRedis).toHaveBeenCalledExactlyOnceWith(uuid);
       expect(childServerMap.get(uuid)).toBeUndefined();
+    });
+  });
+
+  describe("shouldSpawnNewServer", () => {
+    const childServerFactory = (overrides: Partial<ChildProcess>) => {
+      const id = v4();
+      return {
+        server: {
+          id,
+          url: "ws://snickers.com:8080,",
+        },
+        process: {} as ChildProcessWithoutNullStreams,
+        state: defaultServerState(),
+        ...overrides,
+      };
+    };
+
+    it("spawns new server if cumulative socket write load is above max capacity", () => {
+      const a = childServerFactory({
+        state: {
+          ...defaultServerState(),
+          socketWrites: [100_000, 0, 0, 0, 0],
+        },
+      });
+      childServerMap.set(a.server.id, a);
+      const b = childServerFactory({
+        state: {
+          ...defaultServerState(),
+          socketWrites: [100_000, 0, 0, 0, 0],
+        },
+      });
+      childServerMap.set(b.server.id, b);
+      const c = childServerFactory({
+        state: {
+          ...defaultServerState(),
+          socketWrites: [100_000, 0, 0, 0, 0],
+        },
+      });
+      childServerMap.set(c.server.id, c);
+
+      const outcome = shouldSpawnNewServer();
+
+      expect(outcome).toBeTruthy();
+    });
+
+    it("spawns new server if one server has average socket load above critical mass", () => {
+      const a = childServerFactory({
+        state: {
+          ...defaultServerState(),
+          socketWrites: [100_000, 80_000, 110_000, 50_000, 60_000],
+        },
+      });
+      childServerMap.set(a.server.id, a);
+
+      const outcome = shouldSpawnNewServer();
+
+      expect(outcome).toBeTruthy();
     });
   });
 });
