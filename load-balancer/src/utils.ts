@@ -73,6 +73,10 @@ export const spawnServer = async () => {
   if (output) {
     childServerMap.set(output.server.id, output);
   }
+
+  if (!output) {
+    debugLog("error; unable to spawn server");
+  }
 };
 
 export interface ChildProcess {
@@ -96,10 +100,21 @@ export const websocketServerFactory = async (
     },
   );
 
-  const args = [path.resolve("../chat-server/dist/chat-server/index.js")];
+  const args = [
+    "--experimental-transform-types",
+    path.resolve("../chat-server/dist/chat-server/index.js"),
+  ];
   args.push(`--id=${id}`);
 
   const child = spawn(process.execPath, args);
+
+  child.on("error", (e) => debugLog(`child process error: ${e.message}`));
+  child.on("exit", (code, signal) =>
+    debugLog(`child exited with code=${code} signal=${signal}`),
+  );
+  child.stderr.on("data", (chunk) =>
+    debugLog(`child stderr: ${chunk.toString().trim()}`),
+  );
 
   const timeoutMs = 5_000;
   const now = Date.now();
