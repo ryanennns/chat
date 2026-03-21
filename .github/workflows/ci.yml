@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  build-format-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            packages/shared/package-lock.json
+            chat-server/package-lock.json
+            load-balancer/package-lock.json
+            chat-client/package-lock.json
+            _test-harness/package-lock.json
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install shared dependencies
+        run: npm ci
+        working-directory: packages/shared
+
+      - name: Install chat-server dependencies
+        run: npm ci
+        working-directory: chat-server
+
+      - name: Install load-balancer dependencies
+        run: npm ci
+        working-directory: load-balancer
+
+      - name: Install chat-client dependencies
+        run: npm ci
+        working-directory: chat-client
+
+      - name: Install test harness dependencies
+        run: npm ci
+        working-directory: _test-harness
+
+      - name: Run Prettier fix
+        run: npx --prefix chat-server prettier --write .
+
+      - name: Build shared package
+        run: npm run build
+        working-directory: packages/shared
+
+      - name: Build chat-server
+        run: npm run build
+        working-directory: chat-server
+
+      - name: Build load-balancer
+        run: npm run build
+        working-directory: load-balancer
+
+      - name: Run Vitest
+        run: npm test
