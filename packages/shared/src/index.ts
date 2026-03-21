@@ -5,17 +5,31 @@ export interface Server {
   url: string;
 }
 
-export interface ServerState {
-  clients: Array<number>;
-  chatRooms: Array<number>;
-  socketWrites: Array<number>;
-  timeouts: Array<number>;
+class NumericList extends Array<number> {
+  max() {
+    return Math.max(...this);
+  }
+
+  min() {
+    return Math.min(...this);
+  }
+
+  average() {
+    return this.reduce((a, b) => a + b) / this.length;
+  }
 }
-export const defaultServerState = () => ({
-  clients: Array.from({ length: 100 }).map(() => 0),
-  chatRooms: Array.from({ length: 100 }).map(() => 0),
-  socketWrites: Array.from({ length: 100 }).map(() => 0),
-  timeouts: Array.from({ length: 100 }).map(() => 0),
+
+export interface ServerState {
+  clients: NumericList;
+  chatRooms: NumericList;
+  socketWrites: NumericList;
+  timeouts: NumericList;
+}
+export const defaultServerState = (): ServerState => ({
+  clients: new NumericList(...Array.from({ length: 100 }).map(() => 0)),
+  chatRooms: new NumericList(...Array.from({ length: 100 }).map(() => 0)),
+  socketWrites: new NumericList(...Array.from({ length: 100 }).map(() => 0)),
+  timeouts: new NumericList(...Array.from({ length: 100 }).map(() => 0)),
 });
 
 export const redistributeChannel = "wss-redistribute";
@@ -110,7 +124,7 @@ export const getLowestLoadServers = async (
   const ids = await redisClient.zRange(
     serversSocketWritesPerSecondKey,
     0,
-    (count ?? 10) - 1,
+    (count ?? 100) - 1,
   );
 
   const results: Array<{ id: string; url: string }> = [];
