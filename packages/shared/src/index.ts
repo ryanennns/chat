@@ -5,7 +5,7 @@ export interface Server {
   url: string;
 }
 
-class NumericList extends Array<number> {
+export class NumericList extends Array<number> {
   max() {
     return Math.max(...this);
   }

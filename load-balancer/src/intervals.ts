@@ -6,6 +6,7 @@ import {
   serverBlacklist,
 } from "./utils.ts";
 import {
+  NumericList,
   removeServerFromRedis,
   serversChatRoomsCountKey,
   serversClientCountKey,
@@ -118,12 +119,17 @@ export const healthChecks = async () => {
   updatePps();
 };
 
+export const ppsHistory: NumericList = new NumericList(
+  ...Array.from({ length: 100 }).map(() => 0),
+);
 export let pps = 0;
 export let provisionsThisSecond = 0;
 export const incrProvisionsThisSecond = () => provisionsThisSecond++;
 const updatePps = () => {
   pps = provisionsThisSecond;
   runtimeState.pps = pps;
+  ppsHistory.shift();
+  ppsHistory.push(pps);
   provisionsThisSecond = 0;
 };
 
