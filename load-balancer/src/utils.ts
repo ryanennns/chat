@@ -48,10 +48,10 @@ export const shutdown = async () => {
     terminalUi.destroy();
     await redisClient.quit();
     await subscriptionClient.quit();
-    childServerMap.forEach((server: ChildProcess, id: string) => {
-      void removeServerFromRedis(id);
-      server.process.kill(1);
-    });
+    for (let [id, childServerMapElement] of childServerMap) {
+      await removeServerFromRedis(id);
+      childServerMapElement.process.kill(1);
+    }
   } catch {
     redisClient.destroy();
     subscriptionClient.destroy();
@@ -72,10 +72,14 @@ export const spawnServer = async () => {
 
   if (output) {
     childServerMap.set(output.server.id, output);
+
+    return output.server;
   }
 
   if (!output) {
     debugLog("error; unable to spawn server");
+
+    return undefined;
   }
 };
 
