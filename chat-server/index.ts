@@ -162,7 +162,13 @@ const updateMetrics = () => {
 
 const lastFiveTimeoutValues = new Array(5).fill(0);
 setInterval(updateMetrics, 1000);
-
+setInterval(() => {
+  const start = performance.now();
+  setImmediate(() => {
+    lastFiveTimeoutValues.shift();
+    lastFiveTimeoutValues.push(performance.now() - start);
+  });
+}, 1000);
 const registerSocket = async (
   registrationMessage: WebSocketMessage<RegistrationPayload>,
   socket: ClientSocket,
