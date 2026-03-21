@@ -14,7 +14,7 @@ import {
   serversEventLoopTimeoutKey,
   serversHeartbeatKey,
   serversSocketWritesPerSecondKey,
-  WebSocketMessage,
+  type WebSocketMessage,
 } from "@chat/shared";
 import {
   ClientSocket,
