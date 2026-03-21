@@ -31,7 +31,10 @@ const wssBlacklistRemovalTimeoutMs = Number(
   process.env.BLACKLIST_REMOVAL_TIMEOUT_MS ?? 10_000,
 );
 const SOCKET_WRITES_PER_SECOND_CRITICAL_MASS = Number(
-  process.env.SOCKET_WRITES_PER_SECOND_THRESHOLD ?? 75_000,
+  process.env.SOCKET_WRITES_PER_SECOND_THRESHOLD ?? 150_000,
+);
+const AVERAGE_INTERVAL_TIMEOUT_CRITICAL_THRESHOLD = Number(
+  process.env.AVERAGE_INTERVAL_TIMEOUT_CRITICAL_THRESHOLD ?? 10,
 );
 
 const shouldRedistribute = (
@@ -210,9 +213,9 @@ export const shouldSpawnNewServer = () => {
       SOCKET_WRITES_PER_SECOND_CRITICAL_MASS,
   );
 
-  const maxCapacity = 66_000 * childServerMap.size;
+  const maxCapacity = 100_000 * childServerMap.size;
   const lastFiveSecondsOfTotalLoad = [];
-  const len = lastFiveSecondsOfSocketWrites[0].length;
+  const len = lastFiveSecondsOfSocketWrites[0]?.length ?? 1;
   for (let i = 0; i < len; i++) {
     let sum = 0;
     for (let j = 0; j < lastFiveSecondsOfSocketWrites.length; j++) {
@@ -226,19 +229,36 @@ export const shouldSpawnNewServer = () => {
     serversAboveSocketWriteThreshold.length,
   );
   const cumulativeSocketLoadAboveSafeAverage = Boolean(
-    lastFiveSecondsOfTotalLoad.filter((n: number) => n > maxCapacity).length,
+    lastFiveSecondsOfTotalLoad.reduce((a, b) => a + b) /
+      lastFiveSecondsOfTotalLoad.length >
+    maxCapacity,
+  );
+  const areServersTimingOut = Boolean(
+    [...childServerMap.values()].filter((server) => {
+      const len = server.state.timeouts.length;
+      const lastFive = server.state.timeouts.slice(len - 5, len);
+      return (
+        lastFive.reduce((a, b) => a + b) / lastFive.length >
+        AVERAGE_INTERVAL_TIMEOUT_CRITICAL_THRESHOLD
+      );
+    }).length,
   );
 
-  debugLog({
-    serverStartedRecently,
-    serverAboveCriticalMass,
-    averageSocketLoadAboveSafeAverage: cumulativeSocketLoadAboveSafeAverage,
-  });
-
-  return (
+  const val =
     !serverStartedRecently &&
-    (serverAboveCriticalMass || cumulativeSocketLoadAboveSafeAverage)
-  );
+    (serverAboveCriticalMass ||
+      cumulativeSocketLoadAboveSafeAverage ||
+      areServersTimingOut);
+
+  if (val) {
+    debugLog({
+      serverStartedRecently,
+      serverAboveCriticalMass,
+      averageSocketLoadAboveSafeAverage: `${cumulativeSocketLoadAboveSafeAverage} - ${lastFiveSecondsOfTotalLoad.reduce((a, b) => a + b) / lastFiveSecondsOfTotalLoad.length} > ${maxCapacity}`,
+      areServersTimingOut,
+    });
+  }
+  return val;
 };
 
 const spawnServerIfRequired = async () => {

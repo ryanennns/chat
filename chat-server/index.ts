@@ -33,6 +33,8 @@ import {
   decrementClientCount,
   incrementChatCount,
   incrementClientCount,
+  notTakingNewConnections,
+  setNotTakingNewConnections,
 } from "./src/state.js";
 
 const redisClient = createClient();
@@ -78,7 +80,14 @@ void addSelfToRedis();
 
 const rooms: Map<string, Room> = new Map();
 
+setNotTakingNewConnections(false);
 wss.on("connection", async (socket) => {
+  if (notTakingNewConnections) {
+    socket.close(1);
+
+    return;
+  }
+
   const client = socket as ClientSocket;
   client.id = v4();
 
@@ -196,6 +205,9 @@ const updateTimeoutNumbers = async (timeout: number) => {
   }
 };
 
+setInterval(() => {
+  setNotTakingNewConnections(false);
+}, 1_500);
 setInterval(updateMetrics, 1000);
 setInterval(offload, 500);
 setInterval(() => {

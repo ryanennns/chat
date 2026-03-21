@@ -202,21 +202,21 @@ describe("intervals", () => {
       const a = childServerFactory({
         state: {
           ...defaultServerState(),
-          socketWrites: [100_000, 0, 0, 0, 0],
+          socketWrites: [100_000, 100_000, 100_000, 100_000, 100_000],
         },
       });
       childServerMap.set(a.server.id, a);
       const b = childServerFactory({
         state: {
           ...defaultServerState(),
-          socketWrites: [100_000, 0, 0, 0, 0],
+          socketWrites: [100_000, 100_000, 100_000, 100_000, 100_000],
         },
       });
       childServerMap.set(b.server.id, b);
       const c = childServerFactory({
         state: {
           ...defaultServerState(),
-          socketWrites: [100_000, 0, 0, 0, 0],
+          socketWrites: [100_000, 100_000, 100_000, 100_000, 100_000],
         },
       });
       childServerMap.set(c.server.id, c);
