@@ -16,6 +16,7 @@ import {
   serversHeartbeatKey,
   serversSocketWritesPerSecondKey,
 } from "@chat/shared";
+import { chatRoomClientHistory } from "./state.ts";
 
 const PPS_SURGE_THRESHOLD = 40;
 
@@ -133,6 +134,23 @@ export const healthChecks = async () => {
     setServerChatRoomState(c.server.id, keyValuePairs);
   }
 
+  for (const c of [...childServerMap.values()]) {
+    for (let chatRoomKey in c.state.chatRooms) {
+      const list = chatRoomClientHistory[chatRoomKey];
+      const chats = list.deltas()[list.length - 1];
+      const clients = c.state.chatRooms[chatRoomKey]
+
+      const socketWrites = chats * clients;
+
+      if (!c.state.chatRoomSocketWrites[chatRoomKey]) {
+        c.state.chatRoomSocketWrites[chatRoomKey] = new NumericList(...Array.from({length:100}).map(() => 0))
+      }
+
+      c.state.chatRoomSocketWrites[chatRoomKey].shift()
+      c.state.chatRoomSocketWrites[chatRoomKey].push(socketWrites);
+    }
+  }
+
   await detectTimedOutServers();
   purgeBlacklistedServers();
 
@@ -177,8 +195,24 @@ const syncTerminalUi = () => {
   });
 };
 
+const updateState = async () => {
+  const values = await redisClient.zRangeWithScores(
+    chatRoomTotalMessagesKey,
+    0,
+    -1,
+  );
+  values.forEach(({ value, score }) => {
+    if (!chatRoomClientHistory[value]) {
+      chatRoomClientHistory[value] = new NumericList(...Array.from({length:100}).map(() => 0));
+    }
+    chatRoomClientHistory[value].shift();
+    chatRoomClientHistory[value].push(score);
+  });
+};
+
 export const startIntervals = () => {
   setInterval(async () => {
+    await updateState();
     await healthChecks();
     syncTerminalUi();
   }, 1000);

@@ -36,6 +36,7 @@ export interface ServerState {
   timeouts: NumericList;
   messages: NumericList;
   chatRooms: Record<string, number>;
+  chatRoomSocketWrites: Record<string, NumericList>;
 }
 export const defaultServerState = (): ServerState => ({
   clients: new NumericList(...Array.from({ length: 100 }).map(() => 0)),
@@ -43,6 +44,7 @@ export const defaultServerState = (): ServerState => ({
   timeouts: new NumericList(...Array.from({ length: 100 }).map(() => 0)),
   messages: new NumericList(...Array.from({ length: 100 }).map(() => 0)),
   chatRooms: {},
+  chatRoomSocketWrites: {},
 });
 
 export const redistributeChannel = "wss-redistribute";
