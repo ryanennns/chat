@@ -236,7 +236,6 @@ export function Monitor() {
     }
   }, [stats]);
 
-
   return (
     <div className="monitor">
       <div className="monitor-header">
@@ -305,7 +304,9 @@ export function Monitor() {
                     ?.score ?? 0),
               )
               .map((mc, i) => {
-                const prev = prevMessageCounts.current.find((p) => p.value === mc.value);
+                const prev = prevMessageCounts.current.find(
+                  (p) => p.value === mc.value,
+                );
                 const delta = prev ? mc.score - prev.score : 0;
 
                 const clients =
