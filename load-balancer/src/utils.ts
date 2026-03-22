@@ -1,5 +1,5 @@
 import { createClient } from "redis";
-import { terminalUi } from "../terminal-ui.ts";
+// import { terminalUi } from "../terminal-ui.ts";
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
 import path from "node:path";
 import {
@@ -47,7 +47,7 @@ export const runtimeState = {
 
 export const shutdown = async () => {
   try {
-    terminalUi.destroy();
+    // terminalUi.destroy();
     await redisClient.quit();
     await subscriptionClient.quit();
     for (let [id, childServerMapElement] of childServerMap) {

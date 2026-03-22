@@ -407,4 +407,4 @@ class LoadBalancerTerminalUi {
   }
 }
 
-export const terminalUi = new LoadBalancerTerminalUi();
+// export const terminalUi = new LoadBalancerTerminalUi();

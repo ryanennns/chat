@@ -1,4 +1,4 @@
-import { terminalUi } from "../terminal-ui.ts";
+// import { terminalUi } from "../terminal-ui.ts";
 import {
   childServerMap,
   redisClient,
@@ -136,8 +136,8 @@ export const healthChecks = async () => {
 
   for (const c of [...childServerMap.values()]) {
     for (let chatRoomKey in c.state.chatRooms) {
-      const list = chatRoomClientHistory[chatRoomKey];
-      const chats = list.deltas()[list.length - 1];
+      const list = chatRoomClientHistory[chatRoomKey] ?? new NumericList();
+      const chats = list.deltas()[list.length - 1] ?? 0;
       const clients = c.state.chatRooms[chatRoomKey]
 
       const socketWrites = chats * clients;
@@ -175,24 +175,24 @@ const syncTerminalUi = () => {
   const clientsByServerId = new Map(runtimeState.serverLoads);
   const mpsByServerId = new Map(runtimeState.serverMps);
 
-  terminalUi.setSnapshot({
-    blacklistedServers: [...serverBlacklist.entries()].map(
-      ([serverId, startedAt]) => [
-        serverId,
-        Math.floor((Date.now() - startedAt) / 1000),
-      ],
-    ),
-    childServers: [...childServerMap.entries()].map(([serverId, child]) => ({
-      clients: clientsByServerId.get(serverId) ?? 0,
-      isKilled: child.process.killed,
-      mps: mpsByServerId.get(serverId) ?? 0,
-      pid: child.process.pid,
-      serverId,
-      state: child.state,
-    })),
-    status: "running",
-    ...runtimeState,
-  });
+  // terminalUi.setSnapshot({
+  //   blacklistedServers: [...serverBlacklist.entries()].map(
+  //     ([serverId, startedAt]) => [
+  //       serverId,
+  //       Math.floor((Date.now() - startedAt) / 1000),
+  //     ],
+  //   ),
+  //   childServers: [...childServerMap.entries()].map(([serverId, child]) => ({
+  //     clients: clientsByServerId.get(serverId) ?? 0,
+  //     isKilled: child.process.killed,
+  //     mps: mpsByServerId.get(serverId) ?? 0,
+  //     pid: child.process.pid,
+  //     serverId,
+  //     state: child.state,
+  //   })),
+  //   status: "running",
+  //   ...runtimeState,
+  // });
 };
 
 const updateState = async () => {
@@ -214,6 +214,6 @@ export const startIntervals = () => {
   setInterval(async () => {
     await updateState();
     await healthChecks();
-    syncTerminalUi();
+    // syncTerminalUi();
   }, 1000);
 };
