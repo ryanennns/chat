@@ -63,7 +63,7 @@ export const redisStats = async (_req: Request, res: Response) => {
 
   const clientCounts = await redisClient.zRangeWithScores(
     chatRoomTotalClientsKey,
-    1,
+    0,
     -1,
   );
 
