@@ -4,6 +4,7 @@ import { WebSocketServer } from "ws";
 import {
   addServerToRedis,
   ChatPayload,
+  chatRoomTotalMessagesKey,
   debugLog,
   redisRedistributeChannelFactory,
   redisServerKeyFactory,
@@ -214,6 +215,7 @@ const publishChat = async (
     return;
   }
 
+  void redisClient.zIncrBy(chatRoomTotalMessagesKey, 1, socket.chatId);
   await redisClient.publish(socket.chatId, JSON.stringify(message.payload));
 };
 

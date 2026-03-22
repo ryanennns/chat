@@ -36,8 +36,9 @@ export const redistributeChannel = "wss-redistribute";
 export const serversClientCountKey = "servers:clients";
 export const serversChatRoomsCountKey = "servers:chats";
 export const serversHeartbeatKey = "servers:heartbeat";
-export const serversSocketWritesPerSecondKey = "servers:mps";
+export const serversSocketWritesPerSecondKey = "servers:swps";
 export const serversEventLoopTimeoutKey = "servers:event-loop";
+export const chatRoomTotalMessagesKey = "chat-rooms:messages";
 export const redisRedistributeChannelFactory = (serverId: string) =>
   `${serverId}-${redistributeChannel}`;
 export const redisServerKeyFactory = (serverId: string) => `server:${serverId}`;
