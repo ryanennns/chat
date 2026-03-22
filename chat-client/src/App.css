@@ -175,6 +175,13 @@
   flex-shrink: 0;
 }
 
+.room-swps {
+  color: #bc8cff;
+  font-size: 0.75rem;
+  margin-left: 0.5rem;
+  flex-shrink: 0;
+}
+
 .monitor-header {
   display: flex;
   align-items: center;
@@ -348,6 +355,12 @@
 
 .server-room-clients {
   color: #7d9fc5;
+  font-variant-numeric: tabular-nums;
+}
+
+.server-room-swps {
+  color: #bc8cff;
+  font-size: 0.75rem;
   font-variant-numeric: tabular-nums;
 }
 

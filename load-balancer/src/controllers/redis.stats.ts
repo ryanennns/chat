@@ -20,11 +20,18 @@ export const redisStats = async (_req: Request, res: Response) => {
   const servers = [...childServerMap.entries()].map(([id, child]) => {
     const { state, server } = child;
     const last = state.clients.length - 1;
+    const chatRoomSocketWrites = Object.fromEntries(
+      Object.entries(state.chatRoomSocketWrites).map(([room, list]) => [
+        room,
+        list[list.length - 1] ?? 0,
+      ]),
+    );
     return {
       id,
       url: server.url,
       clients: state.clients[last] ?? 0,
       chatRooms: state.chatRooms,
+      chatRoomSocketWrites,
       mps: state.socketWrites[last] ?? 0,
       eventLoopTimeout: state.timeouts[last] ?? 0,
       heartbeatAgeMs: now - (heartbeatMap.get(id) ?? 0),
@@ -33,6 +40,12 @@ export const redisStats = async (_req: Request, res: Response) => {
         chatRooms: state.chatRooms,
         socketWrites: state.socketWrites,
         timeouts: state.timeouts,
+        chatRoomSocketWrites: Object.fromEntries(
+          Object.entries(state.chatRoomSocketWrites).map(([room, list]) => [
+            room,
+            [...list],
+          ]),
+        ),
       },
     };
   });

@@ -5,6 +5,7 @@ interface ServerHistory {
   chatRooms: number[];
   socketWrites: number[];
   timeouts: number[];
+  chatRoomSocketWrites: Record<string, number[]>;
 }
 
 interface ServerMetrics {
@@ -12,6 +13,7 @@ interface ServerMetrics {
   url: string | null;
   clients: number;
   chatRooms: Record<string, number>;
+  chatRoomSocketWrites: Record<string, number>;
   mps: number;
   eventLoopTimeout: number;
   heartbeatAgeMs: number;
@@ -153,6 +155,9 @@ function ServerCard({ s }: { s: ServerMetrics }) {
               <div key={roomId} className="server-room-row">
                 <span className="server-room-name">{roomId}</span>
                 <span className="server-room-clients">{count}</span>
+                <span className="server-room-swps">
+                  {s.chatRoomSocketWrites?.[roomId] ?? 0} swps
+                </span>
               </div>
             ))}
         </div>
@@ -324,11 +329,17 @@ export function Monitor() {
                   stats.chatRooms.clientCounts.find((c) => c.value === mc.value)
                     ?.score ?? 0;
 
+                const swps = stats.servers.reduce(
+                  (sum, s) => sum + (s.chatRoomSocketWrites?.[mc.value] ?? 0),
+                  0,
+                );
+
                 return (
                   <div key={mc.value} className="room-row">
                     <span className="room-name">{mc.value}</span>
                     <span className="room-clients">{clients}</span>
                     <span className="room-msgs">{delta}</span>
+                    <span className="room-swps">{swps}</span>
                   </div>
                 );
               })}
