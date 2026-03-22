@@ -1,4 +1,4 @@
-// this is all AI generated
+// this is 99% AI generated
 import type { Request, Response } from "express";
 import { childServerMap, redisClient } from "../utils.ts";
 import {
@@ -8,7 +8,7 @@ import {
   serversHeartbeatKey,
   serversSocketWritesPerSecondKey,
   redisServerKeyFactory,
-  chatRoomTotalMessagesKey,
+  chatRoomTotalMessagesKey, chatRoomTotalClientsKey,
 } from "@chat/shared";
 
 export const redisStats = async (_req: Request, res: Response) => {
@@ -60,6 +60,8 @@ export const redisStats = async (_req: Request, res: Response) => {
     -1,
   );
 
+  const clientCounts = await redisClient.zRangeWithScores(chatRoomTotalClientsKey,1,-1);
+
   res.json({
     ts: now,
     servers,
@@ -70,6 +72,7 @@ export const redisStats = async (_req: Request, res: Response) => {
     },
     chatRooms: {
       messageCounts,
+      clientCounts,
     },
   });
 };

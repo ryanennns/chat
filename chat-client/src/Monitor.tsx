@@ -22,7 +22,10 @@ interface RedisStats {
   ts: number;
   servers: ServerMetrics[];
   totals: { clients: number; chatRooms: number; mps: number };
-  chatRooms: { messageCounts: { value: string; score: number }[] };
+  chatRooms: {
+    messageCounts: { value: string; score: number }[];
+    clientCounts: { value: string; score: number }[];
+  };
 }
 
 const POLL_MS = 1000;
@@ -225,10 +228,6 @@ export function Monitor() {
     };
   }, []);
 
-  const sortedRooms = stats
-    ? [...stats.chatRooms.messageCounts].sort((a, b) => b.score - a.score)
-    : [];
-
   return (
     <div className="monitor">
       <div className="monitor-header">
@@ -285,15 +284,24 @@ export function Monitor() {
 
           <div className="monitor-sidebar">
             <div className="sidebar-title">chat rooms</div>
-            {sortedRooms.length === 0 && (
+            {stats.chatRooms.messageCounts.length === 0 && (
               <p className="monitor-empty">no rooms</p>
             )}
-            {sortedRooms.map((room) => (
-              <div key={room.value} className="room-row">
-                <span className="room-name">{room.value}</span>
-                <span className="room-msgs">{room.score}</span>
-              </div>
-            ))}
+            {[...stats.chatRooms.messageCounts]
+              .sort((a, b) => b.score - a.score)
+              .map((mc) => {
+                const clients =
+                  stats.chatRooms.clientCounts.find(
+                    (c) => c.value === mc.value,
+                  )?.score ?? 0;
+                return (
+                  <div key={mc.value} className="room-row">
+                    <span className="room-name">{mc.value}</span>
+                    <span className="room-clients">{clients}</span>
+                    <span className="room-msgs">{mc.score}</span>
+                  </div>
+                );
+              })}
           </div>
         </div>
       )}
