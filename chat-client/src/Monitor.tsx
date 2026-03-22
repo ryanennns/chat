@@ -11,7 +11,7 @@ interface ServerMetrics {
   id: string;
   url: string | null;
   clients: number;
-  chatRooms: number;
+  chatRooms: Record<string, number>;
   mps: number;
   eventLoopTimeout: number;
   heartbeatAgeMs: number;
@@ -145,6 +145,18 @@ function ServerCard({ s }: { s: ServerMetrics }) {
           fmt={(v) => `${fmt(v)}ms`}
         />
       </div>
+      {s.chatRooms && Object.keys(s.chatRooms).length > 0 && (
+        <div className="server-rooms">
+          {Object.entries(s.chatRooms)
+            .sort(([, a], [, b]) => b - a)
+            .map(([roomId, count]) => (
+              <div key={roomId} className="server-room-row">
+                <span className="server-room-name">{roomId}</span>
+                <span className="server-room-clients">{count}</span>
+              </div>
+            ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -229,7 +241,6 @@ export function Monitor() {
   }, []);
 
   const prevMessageCounts = useRef<typeof stats.chatRooms.messageCounts>([]);
-
   useEffect(() => {
     if (stats) {
       prevMessageCounts.current = stats.chatRooms.messageCounts;
@@ -303,7 +314,7 @@ export function Monitor() {
                   (stats.chatRooms.clientCounts.find((c) => c.value === a.value)
                     ?.score ?? 0),
               )
-              .map((mc, i) => {
+              .map((mc) => {
                 const prev = prevMessageCounts.current.find(
                   (p) => p.value === mc.value,
                 );

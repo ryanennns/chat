@@ -24,7 +24,7 @@ export const redisStats = async (_req: Request, res: Response) => {
       id,
       url: server.url,
       clients: state.clients[last] ?? 0,
-      chatRooms: Object.keys(state.chatRooms).length,
+      chatRooms: state.chatRooms,
       mps: state.socketWrites[last] ?? 0,
       eventLoopTimeout: state.timeouts[last] ?? 0,
       heartbeatAgeMs: now - (heartbeatMap.get(id) ?? 0),
@@ -44,7 +44,10 @@ export const redisStats = async (_req: Request, res: Response) => {
     servers,
     totals: {
       clients: servers.reduce((s, sv) => s + sv.clients, 0),
-      chatRooms: servers.reduce((s, sv) => s + sv.chatRooms, 0),
+      chatRooms: servers.reduce(
+        (s, sv) => s + Object.values(sv.chatRooms).length,
+        0,
+      ),
       mps: servers.reduce((s, sv) => s + sv.mps, 0),
     },
     chatRooms: {

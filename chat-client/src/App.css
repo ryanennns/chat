@@ -322,6 +322,35 @@
   flex-wrap: wrap;
 }
 
+.server-rooms {
+  margin-top: 0.5rem;
+  border-top: 1px solid #2a2a2a;
+  padding-top: 0.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.server-room-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: #888;
+}
+
+.server-room-name {
+  color: #aaa;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 80%;
+}
+
+.server-room-clients {
+  color: #7d9fc5;
+  font-variant-numeric: tabular-nums;
+}
+
 .graph {
   display: flex;
   flex-direction: column;
