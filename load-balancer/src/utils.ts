@@ -3,6 +3,7 @@ import { terminalUi } from "../terminal-ui.ts";
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
 import path from "node:path";
 import {
+  chatRoomTotalMessagesKey,
   debugLog,
   defaultServerState,
   redisServerKeyFactory,
@@ -52,6 +53,7 @@ export const shutdown = async () => {
       await removeServerFromRedis(id);
       childServerMapElement.process.kill(1);
     }
+    await redisClient.del(chatRoomTotalMessagesKey)
   } catch {
     redisClient.destroy();
     subscriptionClient.destroy();

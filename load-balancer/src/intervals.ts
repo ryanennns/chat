@@ -6,6 +6,7 @@ import {
   serverBlacklist,
 } from "./utils.ts";
 import {
+  chatRoomTotalMessagesKey,
   NumericList,
   removeServerFromRedis,
   serversChatRoomsCountKey,
@@ -111,6 +112,14 @@ export const healthChecks = async () => {
   );
   timeoutValues.forEach(({ value: id, score: timeout }) =>
     updateServerState(id, "timeouts", timeout),
+  );
+  const chatRoomMessages = await redisClient.zRangeWithScores(
+    chatRoomTotalMessagesKey,
+    0,
+    -1,
+  );
+  chatRoomMessages.forEach(({ value: id, score: totalMessages }) =>
+    updateServerState(id, "messages", totalMessages),
   );
 
   await detectTimedOutServers();

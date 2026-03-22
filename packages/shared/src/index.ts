@@ -17,6 +17,10 @@ export class NumericList extends Array<number> {
   average() {
     return this.reduce((a, b) => a + b) / this.length;
   }
+
+  deltas() {
+    return this.map((v, i) => v - (this[i - 1] ?? 0));
+  }
 }
 
 export interface ServerState {
@@ -24,12 +28,14 @@ export interface ServerState {
   chatRooms: NumericList;
   socketWrites: NumericList;
   timeouts: NumericList;
+  messages: NumericList;
 }
 export const defaultServerState = (): ServerState => ({
   clients: new NumericList(...Array.from({ length: 100 }).map(() => 0)),
   chatRooms: new NumericList(...Array.from({ length: 100 }).map(() => 0)),
   socketWrites: new NumericList(...Array.from({ length: 100 }).map(() => 0)),
   timeouts: new NumericList(...Array.from({ length: 100 }).map(() => 0)),
+  messages: new NumericList(...Array.from({ length: 100 }).map(() => 0)),
 });
 
 export const redistributeChannel = "wss-redistribute";
