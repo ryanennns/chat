@@ -53,7 +53,7 @@ export const shutdown = async () => {
       await removeServerFromRedis(id);
       childServerMapElement.process.kill(1);
     }
-    await redisClient.del(chatRoomTotalMessagesKey)
+    await redisClient.del(chatRoomTotalMessagesKey);
   } catch {
     redisClient.destroy();
     subscriptionClient.destroy();
