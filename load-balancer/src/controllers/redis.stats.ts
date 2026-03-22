@@ -8,7 +8,8 @@ import {
   serversHeartbeatKey,
   serversSocketWritesPerSecondKey,
   redisServerKeyFactory,
-  chatRoomTotalMessagesKey, chatRoomTotalClientsKey,
+  chatRoomTotalMessagesKey,
+  chatRoomTotalClientsKey,
 } from "@chat/shared";
 
 export const redisStats = async (_req: Request, res: Response) => {
@@ -60,7 +61,11 @@ export const redisStats = async (_req: Request, res: Response) => {
     -1,
   );
 
-  const clientCounts = await redisClient.zRangeWithScores(chatRoomTotalClientsKey,1,-1);
+  const clientCounts = await redisClient.zRangeWithScores(
+    chatRoomTotalClientsKey,
+    1,
+    -1,
+  );
 
   res.json({
     ts: now,

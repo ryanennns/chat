@@ -6,11 +6,11 @@ import type {
 } from "@chat/shared";
 
 const LOAD_BALANCER_URL = "http://localhost:3000";
-const CHATTER_COUNT = 10_000;
+const CHATTER_COUNT = 50;
 const CHAT_ROOM_COUNT = 1;
 const MESSAGE_INTERVAL_MIN_MS = 5_000;
-const MESSAGE_INTERVAL_MAX_MS = 90_000;
-const INITIAL_CONNECT_STAGGER_MS = 15;
+const MESSAGE_INTERVAL_MAX_MS = 15_000;
+const INITIAL_CONNECT_STAGGER_MS = 100;
 const RECONNECT_DELAY_MS = 100;
 
 type ProvisionedServer = {

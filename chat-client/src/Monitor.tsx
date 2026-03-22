@@ -291,9 +291,8 @@ export function Monitor() {
               .sort((a, b) => b.score - a.score)
               .map((mc) => {
                 const clients =
-                  stats.chatRooms.clientCounts.find(
-                    (c) => c.value === mc.value,
-                  )?.score ?? 0;
+                  stats.chatRooms.clientCounts.find((c) => c.value === mc.value)
+                    ?.score ?? 0;
                 return (
                   <div key={mc.value} className="room-row">
                     <span className="room-name">{mc.value}</span>
