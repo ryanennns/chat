@@ -120,7 +120,9 @@ export const healthChecks = async () => {
   );
 
   for (const c of [...childServerMap.values()]) {
-    const redisData = await redisClient.hGetAll(redisServerKeyFactory(c.server.id));
+    const redisData = await redisClient.hGetAll(
+      redisServerKeyFactory(c.server.id),
+    );
     const chatKeys = Object.keys(redisData).filter((k) => k.includes("chat:"));
     const keyValuePairs: Record<string, number> = {};
 
