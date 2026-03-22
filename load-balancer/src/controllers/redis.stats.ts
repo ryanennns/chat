@@ -1,13 +1,7 @@
-// this is 99% AI generated
 import type { Request, Response } from "express";
 import { childServerMap, redisClient } from "../utils.ts";
 import {
-  serversChatRoomsCountKey,
-  serversClientCountKey,
-  serversEventLoopTimeoutKey,
   serversHeartbeatKey,
-  serversSocketWritesPerSecondKey,
-  redisServerKeyFactory,
   chatRoomTotalMessagesKey,
   chatRoomTotalClientsKey,
 } from "@chat/shared";
@@ -15,57 +9,35 @@ import {
 export const redisStats = async (_req: Request, res: Response) => {
   const now = Date.now();
 
-  const [clients, chatRooms, heartbeats, mps, eventLoop] = await Promise.all([
-    redisClient.zRangeWithScores(serversClientCountKey, 0, -1),
-    redisClient.zRangeWithScores(serversChatRoomsCountKey, 0, -1),
+  const [heartbeats, messageCounts, clientCounts] = await Promise.all([
     redisClient.zRangeWithScores(serversHeartbeatKey, 0, -1),
-    redisClient.zRangeWithScores(serversSocketWritesPerSecondKey, 0, -1),
-    redisClient.zRangeWithScores(serversEventLoopTimeoutKey, 0, -1),
+    redisClient.zRangeWithScores(chatRoomTotalMessagesKey, 0, -1),
+    redisClient.zRangeWithScores(chatRoomTotalClientsKey, 0, -1),
   ]);
 
-  const serverIds = new Set([
-    ...clients.map((e) => e.value),
-    ...heartbeats.map((e) => e.value),
-    ...mps.map((e) => e.value),
-  ]);
+  const heartbeatMap = new Map(heartbeats.map((e) => [e.value, e.score]));
 
-  const servers = await Promise.all(
-    [...serverIds].map(async (id) => {
-      const url =
-        (await redisClient.hGet(redisServerKeyFactory(id), "url")) ?? null;
-      const state = childServerMap.get(id)?.state;
-      return {
-        id,
-        url,
-        clients: clients.find((e) => e.value === id)?.score ?? 0,
-        chatRooms: chatRooms.find((e) => e.value === id)?.score ?? 0,
-        mps: mps.find((e) => e.value === id)?.score ?? 0,
-        eventLoopTimeout: eventLoop.find((e) => e.value === id)?.score ?? 0,
-        heartbeatAgeMs:
-          now - (heartbeats.find((e) => e.value === id)?.score ?? 0),
-        history: {
-          clients: state?.clients ?? [],
-          chatRooms: state?.chatRooms ?? [],
-          socketWrites: state?.socketWrites ?? [],
-          timeouts: state?.timeouts ?? [],
-        },
-      };
-    }),
-  );
+  const servers = [...childServerMap.entries()].map(([id, child]) => {
+    const { state, server } = child;
+    const last = state.clients.length - 1;
+    return {
+      id,
+      url: server.url,
+      clients: state.clients[last] ?? 0,
+      chatRooms: Object.keys(state.chatRooms).length,
+      mps: state.socketWrites[last] ?? 0,
+      eventLoopTimeout: state.timeouts[last] ?? 0,
+      heartbeatAgeMs: now - (heartbeatMap.get(id) ?? 0),
+      history: {
+        clients: state.clients,
+        chatRooms: state.chatRooms,
+        socketWrites: state.socketWrites,
+        timeouts: state.timeouts,
+      },
+    };
+  });
 
   servers.sort((a, b) => a.id.localeCompare(b.id));
-
-  const messageCounts = await redisClient.zRangeWithScores(
-    chatRoomTotalMessagesKey,
-    0,
-    -1,
-  );
-
-  const clientCounts = await redisClient.zRangeWithScores(
-    chatRoomTotalClientsKey,
-    0,
-    -1,
-  );
 
   res.json({
     ts: now,
