@@ -4,6 +4,7 @@ import { WebSocketServer } from "ws";
 import {
   addServerToRedis,
   ChatPayload,
+  chatRoomTotalClientsKey,
   chatRoomTotalMessagesKey,
   debugLog,
   redisRedistributeChannelFactory,
@@ -106,8 +107,10 @@ wss.on("connection", async (socket) => {
   client.on("close", async () => {
     const chatId = client.chatId;
     if (chatId) {
+      void redisClient.zIncrBy(chatRoomTotalClientsKey, -1, chatId);
       rooms.get(chatId)?.clients.delete(client);
     }
+
     if (chatId && (rooms.get(chatId)?.clients.size ?? 0) < 1) {
       debugLog(`unsubscribing from ${chatId}`);
       rooms.delete(chatId);
@@ -175,6 +178,7 @@ const registerSocket = async (
   socket: ClientSocket,
 ) => {
   const chatChannel = registrationMessage.payload.chatId;
+  await redisClient.zIncrBy(chatRoomTotalClientsKey, 1, chatChannel);
 
   if (rooms.get(chatChannel) === undefined) {
     incrementChatCount();

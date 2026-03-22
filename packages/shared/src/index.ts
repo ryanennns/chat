@@ -45,6 +45,7 @@ export const serversHeartbeatKey = "servers:heartbeat";
 export const serversSocketWritesPerSecondKey = "servers:swps";
 export const serversEventLoopTimeoutKey = "servers:event-loop";
 export const chatRoomTotalMessagesKey = "chat-rooms:messages";
+export const chatRoomTotalClientsKey = "chat-rooms:clients";
 export const redisRedistributeChannelFactory = (serverId: string) =>
   `${serverId}-${redistributeChannel}`;
 export const redisServerKeyFactory = (serverId: string) => `server:${serverId}`;
@@ -129,7 +130,7 @@ export const getLowestLoadServers = async (
   await redisClient.connect();
 
   const ids = await redisClient.zRange(
-    serversSocketWritesPerSecondKey,
+    serversClientCountKey,
     0,
     (count ?? 100) - 1,
   );
