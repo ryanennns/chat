@@ -228,6 +228,15 @@ export function Monitor() {
     };
   }, []);
 
+  const prevMessageCounts = useRef<typeof stats.chatRooms.messageCounts>([]);
+
+  useEffect(() => {
+    if (stats) {
+      prevMessageCounts.current = stats.chatRooms.messageCounts;
+    }
+  }, [stats]);
+
+
   return (
     <div className="monitor">
       <div className="monitor-header">
@@ -288,16 +297,26 @@ export function Monitor() {
               <p className="monitor-empty">no rooms</p>
             )}
             {[...stats.chatRooms.messageCounts]
-              .sort((a, b) => b.score - a.score)
-              .map((mc) => {
+              .sort(
+                (a, b) =>
+                  (stats.chatRooms.clientCounts.find((c) => c.value === b.value)
+                    ?.score ?? 0) -
+                  (stats.chatRooms.clientCounts.find((c) => c.value === a.value)
+                    ?.score ?? 0),
+              )
+              .map((mc, i) => {
+                const prev = prevMessageCounts.current.find((p) => p.value === mc.value);
+                const delta = prev ? mc.score - prev.score : 0;
+
                 const clients =
                   stats.chatRooms.clientCounts.find((c) => c.value === mc.value)
                     ?.score ?? 0;
+
                 return (
                   <div key={mc.value} className="room-row">
                     <span className="room-name">{mc.value}</span>
                     <span className="room-clients">{clients}</span>
-                    <span className="room-msgs">{mc.score}</span>
+                    <span className="room-msgs">{delta}</span>
                   </div>
                 );
               })}
