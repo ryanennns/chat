@@ -6,7 +6,7 @@ import {
 } from "../utils.ts";
 import express from "express";
 import { incrProvisionsThisSecond } from "../intervals.ts";
-import { type Server } from "@chat/shared";
+import { getLowestLoadServer, type Server } from "@chat/shared";
 import { lastSpawnedServer, setLastSpawnedServer } from "../state.ts";
 
 const MAX_SOCKET_SPIKE_LOAD = 75_000;
@@ -43,7 +43,7 @@ export const provisionServer = async (
   res: express.Response,
 ) => {
   incrProvisionsThisSecond();
-  let server = await getBestCandidateServer();
+  let server = await getLowestLoadServer();
 
   if (!server) {
     res.sendStatus(404);
