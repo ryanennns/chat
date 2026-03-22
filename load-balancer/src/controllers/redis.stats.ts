@@ -8,6 +8,7 @@ import {
   serversHeartbeatKey,
   serversSocketWritesPerSecondKey,
   redisServerKeyFactory,
+  chatRoomTotalMessagesKey,
 } from "@chat/shared";
 
 export const redisStats = async (_req: Request, res: Response) => {
@@ -53,6 +54,12 @@ export const redisStats = async (_req: Request, res: Response) => {
 
   servers.sort((a, b) => a.id.localeCompare(b.id));
 
+  const messageCounts = await redisClient.zRangeWithScores(
+    chatRoomTotalMessagesKey,
+    0,
+    -1,
+  );
+
   res.json({
     ts: now,
     servers,
@@ -60,6 +67,9 @@ export const redisStats = async (_req: Request, res: Response) => {
       clients: servers.reduce((s, sv) => s + sv.clients, 0),
       chatRooms: servers.reduce((s, sv) => s + sv.chatRooms, 0),
       mps: servers.reduce((s, sv) => s + sv.mps, 0),
+    },
+    chatRooms: {
+      messageCounts,
     },
   });
 };
