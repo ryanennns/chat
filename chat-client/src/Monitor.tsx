@@ -165,7 +165,7 @@ function Graph({
       <div className="graph-meta">
         <span className="graph-label">{label}</span>
         <span className="graph-label">
-          avg: {(data.reduce((a, b) => a + b) / data.length).toFixed(3)}
+          avg: {(data.reduce((a, b) => a + b, 0) / data.length).toFixed(3)}
         </span>
         <span className="graph-current" style={{ color }}>
           {fmtVal(current)}
@@ -247,7 +247,7 @@ export function Monitor() {
             <div className="monitor-totals">
               <Stat label="servers" value={stats.servers.length} />
               <Stat label="clients" value={stats.totals.clients} />
-              <Stat label="total mps" value={fmt(stats.totals.mps)} />
+              <Stat label="total swps" value={fmt(stats.totals.mps)} />
               <Stat
                 label="healthy"
                 value={
