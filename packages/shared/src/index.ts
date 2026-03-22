@@ -23,19 +23,26 @@ export class NumericList extends Array<number> {
   }
 }
 
+export type HistoryKey = Exclude<
+  {
+    [K in keyof ServerState]: ServerState[K] extends NumericList ? K : never;
+  }[keyof ServerState],
+  "chatRooms"
+>;
+
 export interface ServerState {
   clients: NumericList;
-  chatRooms: NumericList;
   socketWrites: NumericList;
   timeouts: NumericList;
   messages: NumericList;
+  chatRooms: Record<string, number>;
 }
 export const defaultServerState = (): ServerState => ({
   clients: new NumericList(...Array.from({ length: 100 }).map(() => 0)),
-  chatRooms: new NumericList(...Array.from({ length: 100 }).map(() => 0)),
   socketWrites: new NumericList(...Array.from({ length: 100 }).map(() => 0)),
   timeouts: new NumericList(...Array.from({ length: 100 }).map(() => 0)),
   messages: new NumericList(...Array.from({ length: 100 }).map(() => 0)),
+  chatRooms: {},
 });
 
 export const redistributeChannel = "wss-redistribute";
@@ -49,6 +56,8 @@ export const chatRoomTotalClientsKey = "chat-rooms:clients";
 export const redisRedistributeChannelFactory = (serverId: string) =>
   `${serverId}-${redistributeChannel}`;
 export const redisServerKeyFactory = (serverId: string) => `server:${serverId}`;
+export const redisChatCountKeyFactory = (chatChannel: string) =>
+  `chat:${chatChannel}`;
 
 export const addServerToRedis = async (server: Server) => {
   const redisClient = createClient();

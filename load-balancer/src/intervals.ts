@@ -7,14 +7,14 @@ import {
 } from "./utils.ts";
 import {
   chatRoomTotalMessagesKey,
+  type HistoryKey,
   NumericList,
+  redisServerKeyFactory,
   removeServerFromRedis,
-  serversChatRoomsCountKey,
   serversClientCountKey,
   serversEventLoopTimeoutKey,
   serversHeartbeatKey,
   serversSocketWritesPerSecondKey,
-  type ServerState,
 } from "@chat/shared";
 
 const PPS_SURGE_THRESHOLD = 40;
@@ -64,9 +64,9 @@ const purgeBlacklistedServers = () => {
   });
 };
 
-const updateServerState = (
+const updateServerStateHistoryArray = (
   id: string,
-  key: keyof ServerState,
+  key: HistoryKey,
   value: number,
 ) => {
   if (!childServerMap.has(id)) {
@@ -77,6 +77,12 @@ const updateServerState = (
   childServerMap.get(id)?.state[key]?.push(value);
 };
 
+const setServerChatRoomState = (id: string, value: Record<string, number>) => {
+  if (childServerMap.has(id)) {
+    childServerMap.get(id)!.state["chatRooms"] = value;
+  }
+};
+
 export const healthChecks = async () => {
   // socket writes
   const socketWrites = await redisClient.zRangeWithScores(
@@ -85,7 +91,7 @@ export const healthChecks = async () => {
     -1,
   );
   socketWrites.forEach(({ value: id, score: writesPerSecond }) =>
-    updateServerState(id, "socketWrites", writesPerSecond),
+    updateServerStateHistoryArray(id, "socketWrites", writesPerSecond),
   );
   // clients
   const clients = await redisClient.zRangeWithScores(
@@ -94,16 +100,7 @@ export const healthChecks = async () => {
     -1,
   );
   clients.forEach(({ value: id, score: clients }) =>
-    updateServerState(id, "clients", clients),
-  );
-  // chat rooms
-  const chatRooms = await redisClient.zRangeWithScores(
-    serversChatRoomsCountKey,
-    0,
-    -1,
-  );
-  chatRooms.forEach(({ value: id, score: chatRooms }) =>
-    updateServerState(id, "chatRooms", chatRooms),
+    updateServerStateHistoryArray(id, "clients", clients),
   );
   const timeoutValues = await redisClient.zRangeWithScores(
     serversEventLoopTimeoutKey,
@@ -111,7 +108,7 @@ export const healthChecks = async () => {
     -1,
   );
   timeoutValues.forEach(({ value: id, score: timeout }) =>
-    updateServerState(id, "timeouts", timeout),
+    updateServerStateHistoryArray(id, "timeouts", timeout),
   );
   const chatRoomMessages = await redisClient.zRangeWithScores(
     chatRoomTotalMessagesKey,
@@ -119,8 +116,20 @@ export const healthChecks = async () => {
     -1,
   );
   chatRoomMessages.forEach(({ value: id, score: totalMessages }) =>
-    updateServerState(id, "messages", totalMessages),
+    updateServerStateHistoryArray(id, "messages", totalMessages),
   );
+
+  for (const c of [...childServerMap.values()]) {
+    const redisData = await redisClient.hGetAll(redisServerKeyFactory(c.server.id));
+    const chatKeys = Object.keys(redisData).filter((k) => k.includes("chat:"));
+    const keyValuePairs: Record<string, number> = {};
+
+    for (let chatKey of chatKeys) {
+      keyValuePairs[chatKey.split("chat:")[1]] = Number(redisData[chatKey]);
+    }
+
+    setServerChatRoomState(c.server.id, keyValuePairs);
+  }
 
   await detectTimedOutServers();
   purgeBlacklistedServers();

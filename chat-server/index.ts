@@ -7,6 +7,7 @@ import {
   chatRoomTotalClientsKey,
   chatRoomTotalMessagesKey,
   debugLog,
+  redisChatCountKeyFactory,
   redisRedistributeChannelFactory,
   redisServerKeyFactory,
   RegistrationPayload,
@@ -108,6 +109,11 @@ wss.on("connection", async (socket) => {
     const chatId = client.chatId;
     if (chatId) {
       void redisClient.zIncrBy(chatRoomTotalClientsKey, -1, chatId);
+      void redisClient.hIncrBy(
+        redisServerKeyFactory(serverId),
+        redisChatCountKeyFactory(chatId),
+        -1,
+      );
       rooms.get(chatId)?.clients.delete(client);
     }
 
@@ -179,6 +185,11 @@ const registerSocket = async (
 ) => {
   const chatChannel = registrationMessage.payload.chatId;
   await redisClient.zIncrBy(chatRoomTotalClientsKey, 1, chatChannel);
+  await redisClient.hIncrBy(
+    redisServerKeyFactory(serverId),
+    redisChatCountKeyFactory(chatChannel),
+    1,
+  );
 
   if (rooms.get(chatChannel) === undefined) {
     incrementChatCount();

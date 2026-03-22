@@ -360,7 +360,6 @@ class LoadBalancerTerminalUi {
             mps: Number(formatNumber(mps)),
             state: {
               clients: formatNumberArray(state.clients),
-              chatRooms: formatNumberArray(state.chatRooms),
               socketWrites: formatNumberArray(state.socketWrites),
               timeouts: formatNumberArray(state.timeouts),
             },
