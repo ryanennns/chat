@@ -13,6 +13,7 @@ interface ServerMetrics {
   socketWritesPerSecond: number;
   eventLoopTimeout: number;
   heartbeatAgeMs: number;
+  rooms: { id: string; clients: number }[];
   history: ServerHistory;
 }
 
@@ -147,6 +148,16 @@ function ServerCard({ s }: { s: ServerMetrics }) {
           fmt={(v) => `${fmt(v)}ms`}
         />
       </div>
+      {s.rooms && s.rooms.length > 0 && (
+        <div className="server-rooms">
+          {s.rooms.map((r) => (
+            <div key={r.id} className="server-room-row">
+              <span className="server-room-name">{r.id}</span>
+              <span className="server-room-clients">c:{r.clients}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -293,7 +304,7 @@ export function Monitor() {
               <p className="monitor-empty">no rooms</p>
             )}
             {[...stats.chatRooms]
-              .sort((a, b) => b.clients - a.clients)
+              .sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }))
               .map((room) => (
                 <div key={room.id} className="room-row">
                   <span className="room-name">{room.id}</span>
