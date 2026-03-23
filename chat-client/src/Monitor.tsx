@@ -258,21 +258,27 @@ export function Monitor() {
 
       {stats && (
         <div className="monitor-body">
-          <div className="server-cards">
-            {stats.socketServers.length === 0 && (
-              <p className="monitor-empty">no servers</p>
-            )}
-            {stats.socketServers.map((s) => (
-              <ServerCard key={s.server.id} s={s} />
-            ))}
+          <div className="monitor-section">
+            <span className="monitor-section-title">servers</span>
+            <div className="server-cards">
+              {stats.socketServers.length === 0 && (
+                <p className="monitor-empty">no servers</p>
+              )}
+              {stats.socketServers.map((s) => (
+                <ServerCard key={s.server.id} s={s} />
+              ))}
+            </div>
           </div>
-          <div className="server-cards">
-            {sortedRooms.length === 0 && (
-              <p className="monitor-empty">no rooms</p>
-            )}
-            {sortedRooms.map(([id, room]) => (
-              <ChatRoomCard key={id} id={id} room={room} />
-            ))}
+          <div className="monitor-section">
+            <span className="monitor-section-title">rooms</span>
+            <div className="server-cards">
+              {sortedRooms.length === 0 && (
+                <p className="monitor-empty">no rooms</p>
+              )}
+              {sortedRooms.map(([id, room]) => (
+                <ChatRoomCard key={id} id={id} room={room} />
+              ))}
+            </div>
           </div>
         </div>
       )}

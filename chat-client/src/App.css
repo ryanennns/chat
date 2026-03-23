@@ -274,6 +274,24 @@
   color: #ff7b72;
 }
 
+/* monitor sections */
+.monitor-section {
+  display: grid;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+
+.monitor-section:last-child {
+  margin-bottom: 0;
+}
+
+.monitor-section-title {
+  font-size: 0.7rem;
+  color: #555;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 /* server cards */
 .server-cards {
   display: grid;
