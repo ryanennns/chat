@@ -76,7 +76,9 @@ export const flushRoom = (
       }
 
       if (socket.readyState === WebSocket.OPEN) {
-        if (redistributeBy > 0) {
+        if (
+          redistributeBy > 0
+        ) {
           socket.send(JSON.stringify(redistributeMessageFactory()));
           redistributeBy--;
         } else {

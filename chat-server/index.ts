@@ -32,6 +32,7 @@ import {
   decrementClientCount,
   incrementChatCount,
   incrementClientCount,
+  rooms,
 } from "./src/state.js";
 
 const redisClient = createClient();
@@ -74,8 +75,6 @@ const url = `ws://localhost:${port}`;
 debugLog(`started ${serverId} on port ${port}`);
 await redisClient.publish(redisServerKeyFactory(serverId), url);
 void addSelfToRedis();
-
-const rooms: Map<string, Room> = new Map();
 
 wss.on("connection", async (socket) => {
   const client = socket as ClientSocket;

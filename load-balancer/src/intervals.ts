@@ -174,7 +174,7 @@ const resetAddressingServers = () => {
   });
 };
 
-const SPAWN_NEW_SERVER = 70_000;
+const SPAWN_NEW_SERVER = 25_000;
 const otherServersDoNotHaveCapacity = () => {
   let hasCapacity = false;
   for (let [_, wss] of socketServers) {
@@ -191,16 +191,12 @@ const otherServersDoNotHaveCapacity = () => {
   return !hasCapacity;
 };
 export const decideWhatToDoNext = async () => {
+  let spawned = false;
   for (let [serverId, wss] of socketServers) {
     const socketWriteDeltas = wss.state.socketWrites.deltas();
     const aboveSocketWriteBreakpointInLastTenSeconds =
       socketWriteDeltas.lastN(10).filter((d) => d >= SPAWN_NEW_SERVER).length >
       1;
-
-    // const socketThroughputTrendingUpwardAcrossLastMinute =
-    //   socketWriteDeltas.lastN(60).trendScore() > 0.4;
-    // const socketThroughputTrendingUpwardAcrossLastHundredSeconds =
-    //   socketWriteDeltas.trendScore() > 0.2;
 
     if (
       aboveSocketWriteBreakpointInLastTenSeconds &&
@@ -211,13 +207,14 @@ export const decideWhatToDoNext = async () => {
         ADDRESSING_SERVER_TIMEOUT
       ) {
         addressingServer[serverId] = Date.now();
-        void spawnServer();
+        !spawned ? void spawnServer() : null;
+        spawned = true;
         debugLog("met criteria for new server spawn");
       }
     }
 
     const shouldRedistribute =
-      socketWriteDeltas.lastN(5).filter((d) => d >= SPAWN_NEW_SERVER).length >
+      socketWriteDeltas.lastN(5).filter((d) => d >= SPAWN_NEW_SERVER * 1.33).length >
       1;
     if (shouldRedistribute) {
       const serverChatRoomLoads: Record<string, number> = {};
@@ -250,7 +247,7 @@ export const decideWhatToDoNext = async () => {
         redisRedistributeChannelFactory(serverId),
         JSON.stringify({
           chatRoom: keyOfHighestLoadChatRoomOnServer,
-          n: wss.state.chatRooms[keyOfHighestLoadChatRoomOnServer!] * 0.15,
+          n: wss.state.clients.last() * 0.15,
         }),
       );
     }
