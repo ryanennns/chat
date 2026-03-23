@@ -13,13 +13,13 @@ export const redisStats = (_req: Request, res: Response) => {
     return {
       id,
       url: server.url,
-      clients: state.clients[last] ?? 0,
-      socketWritesPerSecond: state.socketWrites[last] ?? 0,
-      eventLoopTimeout: state.timeouts[last] ?? 0,
+      clients: state.clients.last() ?? 0,
+      socketWritesPerSecond: state.socketWrites.deltas().last() ?? 0,
+      eventLoopTimeout: state.timeouts.last() ?? 0,
       rooms,
       history: {
         clients: state.clients,
-        socketWrites: state.socketWrites,
+        socketWrites: state.socketWrites.deltas(),
         timeouts: state.timeouts,
       },
     };

@@ -27,6 +27,10 @@ export class NumericList extends Array<number> {
     return this[0];
   }
 
+  lastN(n: number) {
+    return this.slice(this.length - n, this.length);
+  }
+
   last() {
     return this[this.length - 1];
   }
@@ -64,7 +68,6 @@ export const defaultServerState = (): ServerState => ({
 
 export const redistributeChannel = "wss-redistribute";
 export const serversClientCountKey = "servers:clients";
-export const serversChatRoomsCountKey = "servers:chats";
 export const serversHeartbeatKey = "servers:heartbeat";
 export const serversSocketWritesPerSecondKey = "servers:swps";
 export const serversEventLoopTimeoutKey = "servers:event-loop";
@@ -109,7 +112,6 @@ export const removeServerFromRedis = async (serverId: string) => {
   await redisClient.del(redisServerKeyFactory(serverId));
   await redisClient.zRem(serversClientCountKey, serverId);
   await redisClient.zRem(serversHeartbeatKey, serverId);
-  await redisClient.zRem(serversChatRoomsCountKey, serverId);
   await redisClient.zRem(serversSocketWritesPerSecondKey, serverId);
 
   redisClient.destroy();

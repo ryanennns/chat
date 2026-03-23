@@ -122,9 +122,6 @@ function ServerCard({ s }: { s: ServerMetrics }) {
       <div className="server-card-header">
         <span className="server-card-id">{shortId(s.id)}</span>
         <span className="server-card-url">{s.url ?? "—"}</span>
-        <span className={`server-card-hb hb-cell ${hbClass}`}>
-          {fmtAge(s.heartbeatAgeMs)} ago
-        </span>
       </div>
       <div className="server-graphs">
         <Graph

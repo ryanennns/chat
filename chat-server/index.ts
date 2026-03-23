@@ -11,7 +11,6 @@ import {
   redisServerKeyFactory,
   RegistrationPayload,
   removeServerFromRedis,
-  serversChatRoomsCountKey,
   serversClientCountKey,
   serversEventLoopTimeoutKey,
   serversHeartbeatKey,
@@ -155,10 +154,6 @@ const updateMetrics = () => {
   });
   void redisClient.zAdd(serversSocketWritesPerSecondKey, {
     score: socketWritesThisSecond,
-    value: serverId,
-  });
-  void redisClient.zAdd(serversChatRoomsCountKey, {
-    score: chatRoomCount,
     value: serverId,
   });
   void redisClient.zAdd(serversClientCountKey, {

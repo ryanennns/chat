@@ -152,6 +152,23 @@ export const updateChatRoomState = async () => {
 
 export const startIntervals = () => {
   setInterval(async () => {
+    console.log(
+      JSON.stringify({
+        servers: [...socketServers.values()].map((s) => ({
+          clients: s.state.clients.lastN(10),
+          socketWrites: s.state.socketWrites.lastN(10),
+          timeouts: s.state.timeouts.lastN(10),
+          messages: s.state.messages.lastN(10),
+          chatRooms: s.state.chatRooms,
+        })),
+        chatRooms: [...chatRooms.values()].map((chatRoom) => ({
+          clients: chatRoom.clients.lastN(10),
+          cumulativeMessages: chatRoom.cumulativeMessages.lastN(10),
+          cumulativeSocketWrites: chatRoom.cumulativeSocketWrites.lastN(10),
+        })),
+      }),
+    );
+
     await healthChecks();
     await updateServerState();
     await updateChatRoomState();
