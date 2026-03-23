@@ -1,64 +1,72 @@
 import { useEffect, useRef, useState } from "react";
+import { NumericList, type Server, type ServerState } from "@chat/shared";
 
-interface ServerHistory {
-  clients: number[];
-  socketWrites: number[];
-  timeouts: number[];
+interface SocketServer {
+  server: Server;
+  state: ServerState;
 }
 
-interface ServerMetrics {
-  id: string;
-  url: string | null;
-  clients: number;
-  socketWritesPerSecond: number;
-  eventLoopTimeout: number;
-  heartbeatAgeMs: number;
-  rooms: { id: string; clients: number }[];
-  history: ServerHistory;
-}
-
-interface ChatRoomMetrics {
-  id: string;
-  clients: number;
-  messagesPerSecond: number;
-  socketWritesPerSecond: number;
+interface ChatRoom {
+  clients: NumericList;
+  cumulativeMessages: NumericList;
+  cumulativeSocketWrites: NumericList;
 }
 
 interface RedisStats {
-  ts: number;
-  servers: ServerMetrics[];
-  chatRooms: ChatRoomMetrics[];
-  totals: { clients: number; chatRooms: number; socketWritesPerSecond: number };
+  socketServers: SocketServer[];
+  chatRooms: Record<string, ChatRoom>;
+}
+
+function trimStats(raw: {
+  socketServers: { server: Server; state: Record<string, unknown> }[];
+  chatRooms: Record<string, Record<string, unknown>>;
+}): RedisStats {
+  return {
+    socketServers: raw.socketServers.map((s) => ({
+      server: s.server,
+      state: {
+        clients: new NumericList(...(s.state.clients as number[])).lastN(100),
+        socketWrites: new NumericList(
+          ...(s.state.socketWrites as number[]),
+        ).lastN(100),
+        timeouts: new NumericList(...(s.state.timeouts as number[])).lastN(100),
+        chatRooms: s.state.chatRooms as Record<string, number>,
+      },
+    })),
+    chatRooms: Object.fromEntries(
+      Object.entries(raw.chatRooms).map(([id, r]) => [
+        id,
+        {
+          clients: new NumericList(...(r.clients as number[])).lastN(100),
+          cumulativeMessages: new NumericList(
+            ...(r.cumulativeMessages as number[]),
+          ).lastN(100),
+          cumulativeSocketWrites: new NumericList(
+            ...(r.cumulativeSocketWrites as number[]),
+          ).lastN(100),
+        },
+      ]),
+    ),
+  };
 }
 
 const POLL_MS = 1000;
 
-const fmt = (n: number, d = 2) => n.toFixed(d);
-const fmtAge = (ms: number) => {
-  if (ms < 1000) return `${ms}ms`;
-  if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;
-  return `${Math.floor(ms / 60_000)}m${Math.floor((ms % 60_000) / 1000)}s`;
-};
-const shortId = (id: string) => id.slice(0, 8);
-const heartbeatClass = (ms: number) =>
-  ms < 2000 ? "hb-healthy" : ms < 5000 ? "hb-degraded" : "hb-dead";
-
-// SVG sparkline — no dependencies
 function Sparkline({
   data,
   color = "#3fb950",
-  width = 200,
-  height = 50,
+  width = 300,
+  height = 40,
 }: {
-  data: number[];
+  data: NumericList;
   color?: string;
   width?: number;
   height?: number;
 }) {
   if (data.length < 2)
-    return <svg width={width} height={height} className="sparkline" />;
+    return <svg width="100%" height={height} className="sparkline" />;
 
-  const max = Math.max(...data);
+  const max = data.max();
   const min = 0;
   const range = max - min || 1;
   const padX = 1;
@@ -69,40 +77,33 @@ function Sparkline({
   const toY = (v: number) =>
     padY + (1 - (v - min) / range) * (height - padY * 2);
 
-  const linePoints = data
+  const linePoints = [...data]
     .map((v, i) => `${toX(i).toFixed(1)},${toY(v).toFixed(1)}`)
     .join(" ");
 
-  // area: line points + bottom-right + bottom-left
   const areaPoints = [
-    ...data.map((v, i) => `${toX(i).toFixed(1)},${toY(v).toFixed(1)}`),
+    ...[...data].map((v, i) => `${toX(i).toFixed(1)},${toY(v).toFixed(1)}`),
     `${toX(data.length - 1).toFixed(1)},${height}`,
     `${toX(0).toFixed(1)},${height}`,
   ].join(" ");
 
+  const gradId = `grad-${color.replace("#", "")}`;
+
   return (
     <svg
-      width={width}
+      width="100%"
       height={height}
       viewBox={`0 0 ${width} ${height}`}
+      preserveAspectRatio="none"
       className="sparkline"
     >
       <defs>
-        <linearGradient
-          id={`grad-${color.replace("#", "")}`}
-          x1="0"
-          y1="0"
-          x2="0"
-          y2="1"
-        >
+        <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={color} stopOpacity="0.3" />
           <stop offset="100%" stopColor={color} stopOpacity="0.03" />
         </linearGradient>
       </defs>
-      <polygon
-        points={areaPoints}
-        fill={`url(#grad-${color.replace("#", "")})`}
-      />
+      <polygon points={areaPoints} fill={`url(#${gradId})`} />
       <polyline
         points={linePoints}
         fill="none"
@@ -115,96 +116,79 @@ function Sparkline({
   );
 }
 
-function ServerCard({ s }: { s: ServerMetrics }) {
-  const hbClass = heartbeatClass(s.heartbeatAgeMs);
-  return (
-    <div className={`server-card ${hbClass}`}>
-      <div className="server-card-header">
-        <span className="server-card-id">{shortId(s.id)}</span>
-        <span className="server-card-url">{s.url ?? "—"}</span>
-      </div>
-      <div className="server-graphs">
-        <Graph
-          label="clients"
-          current={s.clients}
-          data={s.history?.clients ?? []}
-          color="#7d9fc5"
-        />
-        <Graph
-          label="swps"
-          current={s.socketWritesPerSecond}
-          data={s.history?.socketWrites ?? []}
-          color="#3fb950"
-          fmt={(v) => fmt(v)}
-        />
-        <Graph
-          label="event loop"
-          current={s.eventLoopTimeout}
-          data={s.history?.timeouts ?? []}
-          color="#d29922"
-          fmt={(v) => `${fmt(v)}ms`}
-        />
-      </div>
-      {s.rooms && s.rooms.length > 0 && (
-        <div className="server-rooms">
-          {s.rooms.map((r) => (
-            <div key={r.id} className="server-room-row">
-              <span className="server-room-name">{r.id}</span>
-              <span className="server-room-clients">c:{r.clients}</span>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
+function trendColor(score: number) {
+  if (score > 0.1) return "#3fb950";
+  if (score < -0.1) return "#f85149";
+  return "#8b949e";
 }
 
 function Graph({
   label,
-  current,
   data,
   color,
-  fmt: fmtVal = (v) => String(Math.round(v)),
 }: {
   label: string;
-  current: number;
-  data: number[];
+  data: NumericList;
   color: string;
-  fmt?: (v: number) => string;
 }) {
-  const max = data.length ? Math.max(...data) : 0;
+  const t10 = data.lastN(10).trendScore();
+  const t50 = data.lastN(50).trendScore();
+  const tAll = data.trendScore();
+
+  const Trend = ({ score, label }: { score: number; label: string }) => (
+    <span className="graph-trend" style={{ color: trendColor(score) }}>
+      {label}:{score >= 0 ? "+" : ""}{score.toFixed(2)}
+    </span>
+  );
+
   return (
     <div className="graph">
       <div className="graph-meta">
         <span className="graph-label">{label}</span>
-        <span className="graph-label">
-          avg: {(data.reduce((a, b) => a + b, 0) / data.length).toFixed(3)}
-        </span>
         <span className="graph-current" style={{ color }}>
-          {fmtVal(current)}
+          {data.last() ?? 0}
         </span>
-        <span className="graph-max">max {fmtVal(max)}</span>
+        <Trend score={t10} label="10" />
+        <Trend score={t50} label="50" />
+        <Trend score={tAll} label={`${data.length}`} />
       </div>
-      <Sparkline data={data} color={color} width={160} height={36} />
+      <Sparkline data={data} color={color} />
     </div>
   );
 }
 
-function Stat({
-  label,
-  value,
-  accent,
-}: {
-  label: string;
-  value: string | number;
-  accent?: "green" | "yellow" | "red";
-}) {
+function ServerCard({ s }: { s: SocketServer }) {
+  const swpsDeltas = s.state.socketWrites.deltas();
   return (
-    <div className="stat-card">
-      <span className="stat-label">{label}</span>
-      <span className={`stat-value${accent ? ` stat-value--${accent}` : ""}`}>
-        {value}
-      </span>
+    <div className="server-card">
+      <div className="server-card-header">
+        <span className="server-card-id">{s.server.id.slice(0, 8)}</span>
+        <span className="server-card-url">{s.server.url ?? "—"}</span>
+      </div>
+      <div className="server-graphs">
+        <Graph label="clients" data={s.state.clients} color="#7d9fc5" />
+        <Graph label="swps" data={swpsDeltas} color="#3fb950" />
+      </div>
+    </div>
+  );
+}
+
+function ChatRoomCard({ id, room }: { id: string; room: ChatRoom }) {
+  const msgDeltas = room.cumulativeMessages.deltas();
+  const swpsDeltas = room.cumulativeSocketWrites.deltas();
+  return (
+    <div className="server-card">
+      <div className="server-card-header">
+        <span className="server-card-id">{id}</span>
+        <span className="server-card-url">
+          {room.clients.last() ?? 0} clients
+        </span>
+      </div>
+      <div className="server-graphs">
+        <Graph label="clients" data={room.clients} color="#7d9fc5" />
+        <Graph label="msg/s" data={msgDeltas} color="#3fb950" />
+        <Graph label="swps" data={swpsDeltas} color="#d29922" />
+      </div>
     </div>
   );
 }
@@ -220,9 +204,8 @@ export function Monitor() {
     try {
       const res = await fetch("/api/redis-stats");
       if (!res.ok) throw new Error(`${res.status}`);
-      const data: RedisStats = await res.json();
-      console.log(data);
-      setStats(data);
+      const data = await res.json();
+      setStats(trimStats(data));
       setStatus("ok");
       setLastUpdated(new Date().toLocaleTimeString("en-US", { hour12: false }));
       setPollCount((c) => c + 1);
@@ -239,6 +222,12 @@ export function Monitor() {
     };
   }, []);
 
+  const sortedRooms = stats
+    ? Object.entries(stats.chatRooms).sort(([a], [b]) =>
+        a.localeCompare(b, undefined, { numeric: true }),
+      )
+    : [];
+
   return (
     <div className="monitor">
       <div className="monitor-header">
@@ -253,68 +242,21 @@ export function Monitor() {
 
       {stats && (
         <div className="monitor-body">
-          <div className="monitor-main">
-            <div className="monitor-totals">
-              <Stat label="servers" value={stats.servers.length} />
-              <Stat label="clients" value={stats.totals.clients} />
-              <Stat
-                label="total swps"
-                value={fmt(stats.totals.socketWritesPerSecond)}
-              />
-              <Stat
-                label="healthy"
-                value={
-                  stats.servers.filter((s) => s.heartbeatAgeMs < 2000).length
-                }
-                accent="green"
-              />
-              <Stat
-                label="degraded"
-                value={
-                  stats.servers.filter(
-                    (s) => s.heartbeatAgeMs >= 2000 && s.heartbeatAgeMs < 5000,
-                  ).length
-                }
-                accent="yellow"
-              />
-              <Stat
-                label="dead"
-                value={
-                  stats.servers.filter((s) => s.heartbeatAgeMs >= 5000).length
-                }
-                accent="red"
-              />
-            </div>
-
-            <div className="server-cards">
-              {stats.servers.length === 0 && (
-                <p className="monitor-empty">no servers in redis</p>
-              )}
-              {stats.servers.map((s) => (
-                <ServerCard key={s.id} s={s} />
-              ))}
-            </div>
+          <div className="server-cards">
+            {stats.socketServers.length === 0 && (
+              <p className="monitor-empty">no servers</p>
+            )}
+            {stats.socketServers.map((s) => (
+              <ServerCard key={s.server.id} s={s} />
+            ))}
           </div>
-
-          <div className="monitor-sidebar">
-            <div className="sidebar-title">chat rooms</div>
-            {stats.chatRooms.length === 0 && (
+          <div className="server-cards">
+            {sortedRooms.length === 0 && (
               <p className="monitor-empty">no rooms</p>
             )}
-            {[...stats.chatRooms]
-              .sort((a, b) =>
-                a.id.localeCompare(b.id, undefined, { numeric: true }),
-              )
-              .map((room) => (
-                <div key={room.id} className="room-row">
-                  <span className="room-name">{room.id}</span>
-                  <span className="room-clients">c:{room.clients}</span>
-                  <span className="room-msgs">m:{room.messagesPerSecond}</span>
-                  <span className="room-swps">
-                    s:{room.socketWritesPerSecond}
-                  </span>
-                </div>
-              ))}
+            {sortedRooms.map(([id, room]) => (
+              <ChatRoomCard key={id} id={id} room={room} />
+            ))}
           </div>
         </div>
       )}

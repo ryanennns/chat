@@ -11,6 +11,7 @@
     "monitor": "node --experimental-transform-types --env-file=../.env monitor.ts"
   },
   "dependencies": {
+    "@chat/shared": "file:../packages/shared",
     "@types/blessed": "^0.1.27",
     "blessed": "^0.1.81",
     "prettier": "^3.8.1",
