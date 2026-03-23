@@ -2,32 +2,32 @@ import { useEffect, useRef, useState } from "react";
 
 interface ServerHistory {
   clients: number[];
-  chatRooms: number[];
   socketWrites: number[];
   timeouts: number[];
-  chatRoomSocketWrites: Record<string, number[]>;
 }
 
 interface ServerMetrics {
   id: string;
   url: string | null;
   clients: number;
-  chatRooms: Record<string, number>;
-  chatRoomSocketWrites: Record<string, number>;
-  mps: number;
+  socketWritesPerSecond: number;
   eventLoopTimeout: number;
   heartbeatAgeMs: number;
   history: ServerHistory;
 }
 
+interface ChatRoomMetrics {
+  id: string;
+  clients: number;
+  messagesPerSecond: number;
+  socketWritesPerSecond: number;
+}
+
 interface RedisStats {
   ts: number;
   servers: ServerMetrics[];
-  totals: { clients: number; chatRooms: number; mps: number };
-  chatRooms: {
-    messageCounts: { value: string; score: number }[];
-    clientCounts: { value: string; score: number }[];
-  };
+  chatRooms: ChatRoomMetrics[];
+  totals: { clients: number; chatRooms: number; socketWritesPerSecond: number };
 }
 
 const POLL_MS = 1000;
@@ -134,7 +134,7 @@ function ServerCard({ s }: { s: ServerMetrics }) {
         />
         <Graph
           label="swps"
-          current={s.mps}
+          current={s.socketWritesPerSecond}
           data={s.history?.socketWrites ?? []}
           color="#3fb950"
           fmt={(v) => fmt(v)}
@@ -147,21 +147,6 @@ function ServerCard({ s }: { s: ServerMetrics }) {
           fmt={(v) => `${fmt(v)}ms`}
         />
       </div>
-      {s.chatRooms && Object.keys(s.chatRooms).length > 0 && (
-        <div className="server-rooms">
-          {Object.entries(s.chatRooms)
-            .sort(([, a], [, b]) => b - a)
-            .map(([roomId, count]) => (
-              <div key={roomId} className="server-room-row">
-                <span className="server-room-name">{roomId}</span>
-                <span className="server-room-clients">{count}</span>
-                <span className="server-room-swps">
-                  {s.chatRoomSocketWrites?.[roomId] ?? 0} swps
-                </span>
-              </div>
-            ))}
-        </div>
-      )}
     </div>
   );
 }
@@ -245,13 +230,6 @@ export function Monitor() {
     };
   }, []);
 
-  const prevMessageCounts = useRef<typeof stats.chatRooms.messageCounts>([]);
-  useEffect(() => {
-    if (stats) {
-      prevMessageCounts.current = stats.chatRooms.messageCounts;
-    }
-  }, [stats]);
-
   return (
     <div className="monitor">
       <div className="monitor-header">
@@ -270,7 +248,10 @@ export function Monitor() {
             <div className="monitor-totals">
               <Stat label="servers" value={stats.servers.length} />
               <Stat label="clients" value={stats.totals.clients} />
-              <Stat label="total swps" value={fmt(stats.totals.mps)} />
+              <Stat
+                label="total swps"
+                value={fmt(stats.totals.socketWritesPerSecond)}
+              />
               <Stat
                 label="healthy"
                 value={
@@ -308,40 +289,21 @@ export function Monitor() {
 
           <div className="monitor-sidebar">
             <div className="sidebar-title">chat rooms</div>
-            {stats.chatRooms.messageCounts.length === 0 && (
+            {stats.chatRooms.length === 0 && (
               <p className="monitor-empty">no rooms</p>
             )}
-            {[...stats.chatRooms.messageCounts]
-              .sort(
-                (a, b) =>
-                  (stats.chatRooms.clientCounts.find((c) => c.value === b.value)
-                    ?.score ?? 0) -
-                  (stats.chatRooms.clientCounts.find((c) => c.value === a.value)
-                    ?.score ?? 0),
-              )
-              .map((mc) => {
-                console.log(stats.servers);
-
-                const delta = mc.score;
-
-                const clients =
-                  stats.chatRooms.clientCounts.find((c) => c.value === mc.value)
-                    ?.score ?? 0;
-
-                const msgs = stats.servers.reduce(
-                  (sum, s) => sum + (s.chatRooms?.[mc.value] ?? 0),
-                  0,
-                );
-
-                return (
-                  <div key={mc.value} className="room-row">
-                    <span className="room-name">{mc.value}</span>
-                    <span className="room-clients">c:{clients}</span>
-                    <span className="room-msgs">m:{msgs}</span>
-                    <span className="room-swps">s:{delta}</span>
-                  </div>
-                );
-              })}
+            {[...stats.chatRooms]
+              .sort((a, b) => b.clients - a.clients)
+              .map((room) => (
+                <div key={room.id} className="room-row">
+                  <span className="room-name">{room.id}</span>
+                  <span className="room-clients">c:{room.clients}</span>
+                  <span className="room-msgs">m:{room.messagesPerSecond}</span>
+                  <span className="room-swps">
+                    s:{room.socketWritesPerSecond}
+                  </span>
+                </div>
+              ))}
           </div>
         </div>
       )}
