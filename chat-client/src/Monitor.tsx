@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 
 interface ServerHistory {
   clients: number[];
-  chatRooms: number[];
   socketWrites: number[];
   timeouts: number[];
 }
@@ -11,17 +10,24 @@ interface ServerMetrics {
   id: string;
   url: string | null;
   clients: number;
-  chatRooms: number;
-  mps: number;
+  socketWritesPerSecond: number;
   eventLoopTimeout: number;
   heartbeatAgeMs: number;
   history: ServerHistory;
 }
 
+interface ChatRoomMetrics {
+  id: string;
+  clients: number;
+  messagesPerSecond: number;
+  socketWritesPerSecond: number;
+}
+
 interface RedisStats {
   ts: number;
   servers: ServerMetrics[];
-  totals: { clients: number; chatRooms: number; mps: number };
+  chatRooms: ChatRoomMetrics[];
+  totals: { clients: number; chatRooms: number; socketWritesPerSecond: number };
 }
 
 const POLL_MS = 1000;
@@ -127,8 +133,8 @@ function ServerCard({ s }: { s: ServerMetrics }) {
           color="#7d9fc5"
         />
         <Graph
-          label="socket writes/s"
-          current={s.mps}
+          label="swps"
+          current={s.socketWritesPerSecond}
           data={s.history?.socketWrites ?? []}
           color="#3fb950"
           fmt={(v) => fmt(v)}
@@ -163,6 +169,9 @@ function Graph({
     <div className="graph">
       <div className="graph-meta">
         <span className="graph-label">{label}</span>
+        <span className="graph-label">
+          avg: {(data.reduce((a, b) => a + b, 0) / data.length).toFixed(3)}
+        </span>
         <span className="graph-current" style={{ color }}>
           {fmtVal(current)}
         </span>
@@ -234,46 +243,69 @@ export function Monitor() {
       </div>
 
       {stats && (
-        <>
-          <div className="monitor-totals">
-            <Stat label="servers" value={stats.servers.length} />
-            <Stat label="clients" value={stats.totals.clients} />
-            <Stat label="chat rooms" value={stats.totals.chatRooms} />
-            <Stat label="total mps" value={fmt(stats.totals.mps)} />
-            <Stat
-              label="healthy"
-              value={
-                stats.servers.filter((s) => s.heartbeatAgeMs < 2000).length
-              }
-              accent="green"
-            />
-            <Stat
-              label="degraded"
-              value={
-                stats.servers.filter(
-                  (s) => s.heartbeatAgeMs >= 2000 && s.heartbeatAgeMs < 5000,
-                ).length
-              }
-              accent="yellow"
-            />
-            <Stat
-              label="dead"
-              value={
-                stats.servers.filter((s) => s.heartbeatAgeMs >= 5000).length
-              }
-              accent="red"
-            />
+        <div className="monitor-body">
+          <div className="monitor-main">
+            <div className="monitor-totals">
+              <Stat label="servers" value={stats.servers.length} />
+              <Stat label="clients" value={stats.totals.clients} />
+              <Stat
+                label="total swps"
+                value={fmt(stats.totals.socketWritesPerSecond)}
+              />
+              <Stat
+                label="healthy"
+                value={
+                  stats.servers.filter((s) => s.heartbeatAgeMs < 2000).length
+                }
+                accent="green"
+              />
+              <Stat
+                label="degraded"
+                value={
+                  stats.servers.filter(
+                    (s) => s.heartbeatAgeMs >= 2000 && s.heartbeatAgeMs < 5000,
+                  ).length
+                }
+                accent="yellow"
+              />
+              <Stat
+                label="dead"
+                value={
+                  stats.servers.filter((s) => s.heartbeatAgeMs >= 5000).length
+                }
+                accent="red"
+              />
+            </div>
+
+            <div className="server-cards">
+              {stats.servers.length === 0 && (
+                <p className="monitor-empty">no servers in redis</p>
+              )}
+              {stats.servers.map((s) => (
+                <ServerCard key={s.id} s={s} />
+              ))}
+            </div>
           </div>
 
-          <div className="server-cards">
-            {stats.servers.length === 0 && (
-              <p className="monitor-empty">no servers in redis</p>
+          <div className="monitor-sidebar">
+            <div className="sidebar-title">chat rooms</div>
+            {stats.chatRooms.length === 0 && (
+              <p className="monitor-empty">no rooms</p>
             )}
-            {stats.servers.map((s) => (
-              <ServerCard key={s.id} s={s} />
-            ))}
+            {[...stats.chatRooms]
+              .sort((a, b) => b.clients - a.clients)
+              .map((room) => (
+                <div key={room.id} className="room-row">
+                  <span className="room-name">{room.id}</span>
+                  <span className="room-clients">c:{room.clients}</span>
+                  <span className="room-msgs">m:{room.messagesPerSecond}</span>
+                  <span className="room-swps">
+                    s:{room.socketWritesPerSecond}
+                  </span>
+                </div>
+              ))}
           </div>
-        </>
+        </div>
       )}
 
       {status === "error" && !stats && (

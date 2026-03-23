@@ -5,28 +5,58 @@ export interface Server {
   url: string;
 }
 
-export interface ServerState {
-  clients: Array<number>;
-  chatRooms: Array<number>;
-  socketWrites: Array<number>;
-  timeouts: Array<number>;
+export class NumericList extends Array<number> {
+  max() {
+    return Math.max(...this);
+  }
+
+  min() {
+    return Math.min(...this);
+  }
+
+  average() {
+    return this.reduce((a, b) => a + b) / this.length;
+  }
+
+  deltas() {
+    return this.map((v, i) => v - (this[i - 1] ?? 0));
+  }
 }
-export const defaultServerState = () => ({
-  clients: Array.from({ length: 100 }).map(() => 0),
-  chatRooms: Array.from({ length: 100 }).map(() => 0),
-  socketWrites: Array.from({ length: 100 }).map(() => 0),
-  timeouts: Array.from({ length: 100 }).map(() => 0),
+
+export type HistoryKey = Exclude<
+  {
+    [K in keyof ServerState]: ServerState[K] extends NumericList ? K : never;
+  }[keyof ServerState],
+  "chatRooms"
+>;
+
+export interface ServerState {
+  clients: NumericList;
+  socketWrites: NumericList;
+  timeouts: NumericList;
+  messages: NumericList;
+}
+export const defaultServerState = (): ServerState => ({
+  clients: new NumericList(...Array.from({ length: 100 }).map(() => 0)),
+  socketWrites: new NumericList(...Array.from({ length: 100 }).map(() => 0)),
+  timeouts: new NumericList(...Array.from({ length: 100 }).map(() => 0)),
+  messages: new NumericList(...Array.from({ length: 100 }).map(() => 0)),
 });
 
 export const redistributeChannel = "wss-redistribute";
 export const serversClientCountKey = "servers:clients";
 export const serversChatRoomsCountKey = "servers:chats";
 export const serversHeartbeatKey = "servers:heartbeat";
-export const serversSocketWritesPerSecondKey = "servers:mps";
+export const serversSocketWritesPerSecondKey = "servers:swps";
 export const serversEventLoopTimeoutKey = "servers:event-loop";
+export const chatRoomSocketWritesPerSecondKey = "chat-rooms:socket-writes";
+export const chatRoomMessagesPerSecondKey = "chat-rooms:messages";
+export const chatRoomTotalClientsKey = "chat-rooms:clients";
 export const redisRedistributeChannelFactory = (serverId: string) =>
   `${serverId}-${redistributeChannel}`;
 export const redisServerKeyFactory = (serverId: string) => `server:${serverId}`;
+export const redisChatCountKeyFactory = (chatChannel: string) =>
+  `chat:${chatChannel}`;
 
 export const addServerToRedis = async (server: Server) => {
   const redisClient = createClient();
@@ -108,9 +138,9 @@ export const getLowestLoadServers = async (
   await redisClient.connect();
 
   const ids = await redisClient.zRange(
-    serversSocketWritesPerSecondKey,
+    serversClientCountKey,
     0,
-    (count ?? 10) - 1,
+    (count ?? 100) - 1,
   );
 
   const results: Array<{ id: string; url: string }> = [];

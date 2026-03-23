@@ -1,8 +1,10 @@
 import { createClient } from "redis";
-import { terminalUi } from "../terminal-ui.ts";
+// import { terminalUi } from "../terminal-ui.ts";
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
 import path from "node:path";
 import {
+  chatRoomTotalClientsKey,
+  chatRoomSocketWritesPerSecondKey,
   debugLog,
   defaultServerState,
   redisServerKeyFactory,
@@ -10,6 +12,7 @@ import {
   type Server,
   type ServerState,
 } from "@chat/shared";
+import { v4 } from "uuid";
 
 export const redisClient = createClient();
 await redisClient.connect();
@@ -44,13 +47,15 @@ export const runtimeState = {
 
 export const shutdown = async () => {
   try {
-    terminalUi.destroy();
+    // terminalUi.destroy();
     await redisClient.quit();
     await subscriptionClient.quit();
-    childServerMap.forEach((server: ChildProcess, id: string) => {
-      void removeServerFromRedis(id);
-      server.process.kill(1);
-    });
+    for (let [id, childServerMapElement] of childServerMap) {
+      await removeServerFromRedis(id);
+      childServerMapElement.process.kill(1);
+    }
+    await redisClient.del(chatRoomSocketWritesPerSecondKey);
+    await redisClient.del(chatRoomTotalClientsKey);
   } catch {
     redisClient.destroy();
     subscriptionClient.destroy();
@@ -65,6 +70,22 @@ await subscriptionClient.subscribe("panic", (server: string) => {
     `server id ${payload.serverId.slice(0, 5)} is timing out (${payload.timeout.toFixed(2)})`,
   );
 });
+
+export const spawnServer = async () => {
+  const output = await websocketServerFactory(v4());
+
+  if (output) {
+    childServerMap.set(output.server.id, output);
+
+    return output.server;
+  }
+
+  if (!output) {
+    debugLog("error; unable to spawn server");
+
+    return undefined;
+  }
+};
 
 export interface ChildProcess {
   server: Server;
@@ -87,10 +108,21 @@ export const websocketServerFactory = async (
     },
   );
 
-  const args = [path.resolve("../chat-server/dist/chat-server/index.js")];
+  const args = [
+    "--experimental-transform-types",
+    path.resolve("../chat-server/dist/chat-server/index.js"),
+  ];
   args.push(`--id=${id}`);
 
   const child = spawn(process.execPath, args);
+
+  child.on("error", (e) => debugLog(`child process error: ${e.message}`));
+  child.on("exit", (code, signal) =>
+    debugLog(`child exited with code=${code} signal=${signal}`),
+  );
+  child.stderr.on("data", (chunk) =>
+    debugLog(`child stderr: ${chunk.toString().trim()}`),
+  );
 
   const timeoutMs = 5_000;
   const now = Date.now();

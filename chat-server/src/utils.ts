@@ -1,5 +1,4 @@
 import {
-  debugLog,
   getLowestLoadServer,
   RedistributionPayload,
   Server,
@@ -49,14 +48,13 @@ export interface Room {
 }
 
 export const redistributeListener = (message: string) => {
-  // redistributeBy = Math.floor(
-  //   Math.max(Number(message) * REDISTRIBUTE_BY_FACTOR, 1),
-  // );
-  // setNotTakingNewConnections(true);
-  debugLog(`over by ${message}; nuking ${redistributeBy} clients`);
+  redistributeBy = Math.floor(Math.max(Number(message) * 0.15, 1));
 };
 
-export const flushRoom = (room: Room, callback: () => void = () => {}) => {
+export const flushRoom = (
+  room: Room,
+  callback: (socket: ClientSocket) => void = () => {},
+) => {
   if (room.queue.length < 1) {
     room.running = false;
 
@@ -84,7 +82,7 @@ export const flushRoom = (room: Room, callback: () => void = () => {}) => {
         } else {
           socket.send(message);
         }
-        callback();
+        callback(socket);
       }
     }
 

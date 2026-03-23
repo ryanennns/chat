@@ -53,7 +53,8 @@ const timestamp = () =>
 const formatNumber = (value: number) => value.toFixed(2);
 const formatNumberArray = (values: number[]) =>
   values
-    .slice(0, MAX_RENDERED_ARRAY_ITEMS)
+    .slice(values.length - 10, values.length)
+    .reverse()
     .map((value) => Number(formatNumber(value)));
 const formatServerJson = (value: unknown) =>
   JSON.stringify(value, null, 2)
@@ -359,7 +360,6 @@ class LoadBalancerTerminalUi {
             mps: Number(formatNumber(mps)),
             state: {
               clients: formatNumberArray(state.clients),
-              chatRooms: formatNumberArray(state.chatRooms),
               socketWrites: formatNumberArray(state.socketWrites),
               timeouts: formatNumberArray(state.timeouts),
             },
@@ -407,4 +407,4 @@ class LoadBalancerTerminalUi {
   }
 }
 
-export const terminalUi = new LoadBalancerTerminalUi();
+// export const terminalUi = new LoadBalancerTerminalUi();

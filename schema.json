@@ -1,0 +1,25 @@
+{
+  "chat_rooms": [
+    {
+      "id": "some-chat",
+      "clients": 0,
+      "messages_per_second": 0,
+      "socket_writes_per_second": 0
+    }
+  ],
+  "servers": [
+    {
+      "id": "some-server",
+      "url": "ws://localhost:8080",
+      "chat_rooms": [
+        {
+          "id": "some-chat",
+          "clients": 0
+        }
+      ],
+      "last_heartbeat": 123,
+      "event_loop_timeout": 2,
+      "cumulative_swps": 0
+    }
+  ]
+}
