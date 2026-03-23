@@ -2,42 +2,7 @@ import { spawnServer } from "../utils.ts";
 import express from "express";
 import { incrProvisionsThisSecond } from "../intervals.ts";
 import { getLowestLoadServer, type Server } from "@chat/shared";
-import {
-  type ChildProcess,
-  lastSpawnedServer,
-  setLastSpawnedServer,
-  socketServers,
-  terminalUiRuntimeState,
-} from "../state.ts";
-
-const MAX_SOCKET_SPIKE_LOAD = 75_000;
-const serverAtMaxCapacity = (server: ChildProcess): boolean => {
-  return server.state.socketWrites.max() > MAX_SOCKET_SPIKE_LOAD;
-};
-const shouldSpawnServer = () => Date.now() - lastSpawnedServer > 10_000;
-export const getBestCandidateServer = async (): Promise<Server | undefined> => {
-  const servers = [...socketServers.values()];
-
-  let candidate: ChildProcess | undefined = undefined;
-  servers.forEach((server) => {
-    if (serverAtMaxCapacity(server)) {
-      return;
-    }
-
-    if (true /* some other conditions... */) {
-      // early return
-    }
-
-    candidate = server;
-  });
-
-  if (!candidate && shouldSpawnServer()) {
-    setLastSpawnedServer(Date.now());
-    return await spawnServer();
-  }
-
-  return (candidate as ChildProcess | undefined)?.server;
-};
+import { terminalUiRuntimeState } from "../state.ts";
 
 export const provisionServer = async (
   req: express.Request,
