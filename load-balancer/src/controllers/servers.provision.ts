@@ -1,7 +1,6 @@
-import { spawnServer } from "../utils.ts";
 import express from "express";
 import { incrProvisionsThisSecond } from "../intervals.ts";
-import { getLowestLoadServer, type Server } from "@chat/shared";
+import { getLowestLoadServer } from "@chat/shared";
 import { terminalUiRuntimeState } from "../state.ts";
 
 export const provisionServer = async (
