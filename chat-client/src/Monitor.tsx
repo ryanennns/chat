@@ -137,7 +137,8 @@ function Graph({
 
   const Trend = ({ score, label }: { score: number; label: string }) => (
     <span className="graph-trend" style={{ color: trendColor(score) }}>
-      {label}:{score >= 0 ? "+" : ""}{score.toFixed(2)}
+      {label}:{score >= 0 ? "+" : ""}
+      {score.toFixed(2)}
     </span>
   );
 
