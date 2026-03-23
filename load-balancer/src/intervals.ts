@@ -153,19 +153,29 @@ export const updateChatRoomState = async () => {
 export const startIntervals = () => {
   setInterval(async () => {
     console.log(
-      JSON.stringify({
-        servers: [...socketServers.values()].map((s) => ({
-          clients: s.state.clients.lastN(10),
-          socketWrites: s.state.socketWrites.lastN(10),
-          timeouts: s.state.timeouts.lastN(10),
-          chatRooms: s.state.chatRooms,
-        })),
-        chatRooms: [...chatRooms.values()].map((chatRoom) => ({
-          clients: chatRoom.clients.lastN(10),
-          cumulativeMessages: chatRoom.cumulativeMessages.lastN(10),
-          cumulativeSocketWrites: chatRoom.cumulativeSocketWrites.lastN(10),
-        })),
-      }),
+      JSON.stringify(
+        {
+          servers: [...socketServers.values()].map((s) => ({
+            clients: s.state.clients.lastN(10).deltas().trendScore(),
+            socketWrites: s.state.socketWrites.lastN(10).deltas().trendScore(),
+            timeouts: s.state.timeouts.lastN(10).deltas().trendScore(),
+            chatRooms: s.state.chatRooms,
+          })),
+          chatRooms: [...chatRooms.values()].map((chatRoom) => ({
+            clients: chatRoom.clients.lastN(10).trendScore(),
+            cumulativeMessages: chatRoom.cumulativeMessages
+              .lastN(10)
+              .deltas()
+              .trendScore(),
+            cumulativeSocketWrites: chatRoom.cumulativeSocketWrites
+              .lastN(10)
+              .deltas()
+              .trendScore(),
+          })),
+        },
+        null,
+        2,
+      ),
     );
 
     await healthChecks();

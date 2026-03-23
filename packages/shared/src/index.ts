@@ -28,7 +28,7 @@ export class NumericList extends Array<number> {
   }
 
   lastN(n: number) {
-    return this.slice(this.length - n, this.length);
+    return this.fromArray(this.slice(this.length - n, this.length));
   }
 
   last() {
@@ -43,6 +43,31 @@ export class NumericList extends Array<number> {
 
   fromArray(a: Array<number>) {
     return new NumericList(...a);
+  }
+
+  trendScore(k = 2) {
+    if (this.length < 2) {
+      return 0;
+    }
+
+    let sum = 0;
+    let count = 0;
+
+    for (let i = 1; i < this.length; i++) {
+      const prev = this[i - 1];
+      const curr = this[i];
+      if (prev === 0) continue;
+
+      sum += Math.log(curr / prev);
+      count++;
+    }
+
+    if (count === 0) {
+      return 0;
+    }
+
+    const avg = sum / count;
+    return Math.tanh(k * avg);
   }
 }
 
