@@ -45,7 +45,7 @@ export class NumericList extends Array<number> {
     return new NumericList(...a);
   }
 
-  trendScore(k = 2) {
+  trendScore(k = 5) {
     if (this.length < 2) {
       return 0;
     }
@@ -95,7 +95,8 @@ export const defaultServerState = (): ServerState => ({
 export const redistributeChannel = "wss-redistribute";
 export const serversClientCountKey = "servers:clients";
 export const serversHeartbeatKey = "servers:heartbeat";
-export const serversCumulativeSocketWritesKey = "servers:cumulative-socket-writes";
+export const serversCumulativeSocketWritesKey =
+  "servers:cumulative-socket-writes";
 export const serversEventLoopTimeoutKey = "servers:event-loop";
 export const chatRoomCumulativeSocketWrites =
   "chat-rooms:cumulative-socket-writes";
