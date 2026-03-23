@@ -6,7 +6,7 @@ import type {
 } from "@chat/shared";
 
 const LOAD_BALANCER_URL = "http://localhost:3000";
-const CHATTER_COUNT = 1500;
+const CHATTER_COUNT = 1000;
 const CHAT_ROOM_COUNT = 5;
 const MESSAGE_INTERVAL_MIN_MS = 5_000;
 const MESSAGE_INTERVAL_MAX_MS = 60_000;

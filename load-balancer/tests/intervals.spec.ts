@@ -13,7 +13,7 @@ import {
   defaultServerState,
   serversClientCountKey,
   serversEventLoopTimeoutKey,
-  serversSocketWritesPerSecondKey,
+  serversCumulativeSocketWritesKey,
 } from "@chat/shared";
 import { chatRooms, socketServers } from "@load-balancer/src/state.js";
 
@@ -133,7 +133,7 @@ describe("intervals", () => {
 
       expect(mockRedisClient.zRangeWithScores).toHaveBeenCalledTimes(3);
       [
-        serversSocketWritesPerSecondKey,
+        serversCumulativeSocketWritesKey,
         serversClientCountKey,
         serversEventLoopTimeoutKey,
       ].forEach((v) =>

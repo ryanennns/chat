@@ -56,7 +56,8 @@ export class NumericList extends Array<number> {
     for (let i = 1; i < this.length; i++) {
       const prev = this[i - 1];
       const curr = this[i];
-      if (prev === 0) continue;
+      const ratio = curr / prev;
+      if (!isFinite(ratio) || ratio <= 0) continue;
 
       sum += Math.log(curr / prev);
       count++;
@@ -94,7 +95,7 @@ export const defaultServerState = (): ServerState => ({
 export const redistributeChannel = "wss-redistribute";
 export const serversClientCountKey = "servers:clients";
 export const serversHeartbeatKey = "servers:heartbeat";
-export const serversSocketWritesPerSecondKey = "servers:swps";
+export const serversCumulativeSocketWritesKey = "servers:cumulative-socket-writes";
 export const serversEventLoopTimeoutKey = "servers:event-loop";
 export const chatRoomCumulativeSocketWrites =
   "chat-rooms:cumulative-socket-writes";
@@ -122,7 +123,7 @@ export const addServerToRedis = async (server: Server) => {
     score: Date.now(),
     value: server.id,
   });
-  await redisClient.zAdd(serversSocketWritesPerSecondKey, {
+  await redisClient.zAdd(serversCumulativeSocketWritesKey, {
     score: 0,
     value: server.id,
   });
@@ -137,7 +138,7 @@ export const removeServerFromRedis = async (serverId: string) => {
   await redisClient.del(redisServerKeyFactory(serverId));
   await redisClient.zRem(serversClientCountKey, serverId);
   await redisClient.zRem(serversHeartbeatKey, serverId);
-  await redisClient.zRem(serversSocketWritesPerSecondKey, serverId);
+  await redisClient.zRem(serversCumulativeSocketWritesKey, serverId);
 
   redisClient.destroy();
 };

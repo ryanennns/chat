@@ -14,7 +14,7 @@ import {
   serversClientCountKey,
   serversEventLoopTimeoutKey,
   serversHeartbeatKey,
-  serversSocketWritesPerSecondKey,
+  serversCumulativeSocketWritesKey,
   type WebSocketMessage,
   chatRoomCumulativeMessages,
   chatRoomCumulativeSocketWrites,
@@ -152,7 +152,7 @@ const updateMetrics = () => {
     score: Date.now(),
     value: serverId,
   });
-  void redisClient.zAdd(serversSocketWritesPerSecondKey, {
+  void redisClient.zAdd(serversCumulativeSocketWritesKey, {
     score: socketWritesThisSecond,
     value: serverId,
   });

@@ -10,7 +10,7 @@ import {
   serversClientCountKey,
   serversEventLoopTimeoutKey,
   serversHeartbeatKey,
-  serversSocketWritesPerSecondKey,
+  serversCumulativeSocketWritesKey,
 } from "@chat/shared";
 import {
   chatRooms,
@@ -76,7 +76,7 @@ export const healthChecks = async () => {
 
 export const updateServerState = async () => {
   const [socketWrites, clients, timeoutValues] = await Promise.all([
-    redisClient.zRangeWithScores(serversSocketWritesPerSecondKey, 0, -1),
+    redisClient.zRangeWithScores(serversCumulativeSocketWritesKey, 0, -1),
     redisClient.zRangeWithScores(serversClientCountKey, 0, -1),
     redisClient.zRangeWithScores(serversEventLoopTimeoutKey, 0, -1),
   ]);
@@ -181,5 +181,25 @@ export const startIntervals = () => {
     await healthChecks();
     await updateServerState();
     await updateChatRoomState();
+
+    await decideWhatToDoNext();
   }, 1000);
 };
+
+export const decideWhatToDoNext = async () => {
+  for (let [_, p] of socketServers) {
+    p.state.socketWrites
+  }
+
+  for (let [key, chatRoom] of chatRooms) {
+    const numberOfClients = chatRoom.clients;
+    const messagesPerSecond = chatRoom.cumulativeMessages.deltas();
+    const socketWritesPerSecond = chatRoom.cumulativeSocketWrites.deltas();
+
+    const posesThreatToServer = messagesPerSecond
+
+    const last100Seconds = messagesPerSecond.trendScore();
+    const last50Seconds = messagesPerSecond.lastN(50).trendScore();
+    const last10Seconds = messagesPerSecond.lastN(10).trendScore();
+  }
+}
