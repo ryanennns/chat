@@ -19,7 +19,4 @@ export const provisionServer = async (
     id: server.id,
     url: server.url,
   });
-
-  terminalUiRuntimeState.provisionCount++;
-  terminalUiRuntimeState.lastProvisionedServer = server.id;
 };

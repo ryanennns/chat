@@ -1,4 +1,3 @@
-// import { terminalUi } from "../terminal-ui.ts";
 import { redisClient, serverBlacklist } from "./utils.ts";
 import {
   chatRoomMessagesPerSecondKey,
@@ -19,22 +18,11 @@ import {
   terminalUiRuntimeState,
 } from "./state.ts";
 
-const PPS_SURGE_THRESHOLD = 40;
-
 const wssServerTimeoutMs: number = Number(
   process.env.SERVER_TIMEOUT_MS ?? 1_000,
 );
-const redistributeThreshold = Number(
-  process.env.REDISTRIBUTE_THRESHOLD ?? 0.95,
-);
 const wssBlacklistRemovalTimeoutMs = Number(
   process.env.BLACKLIST_REMOVAL_TIMEOUT_MS ?? 10_000,
-);
-const SOCKET_WRITES_PER_SECOND_CRITICAL_MASS = Number(
-  process.env.SOCKET_WRITES_PER_SECOND_THRESHOLD ?? 150_000,
-);
-const AVERAGE_INTERVAL_TIMEOUT_CRITICAL_THRESHOLD = Number(
-  process.env.AVERAGE_INTERVAL_TIMEOUT_CRITICAL_THRESHOLD ?? 10,
 );
 
 const detectTimedOutServers = async () => {
@@ -80,35 +68,28 @@ const updateServerStateHistoryArray = (
 };
 
 export const healthChecks = async () => {
+  await detectTimedOutServers();
+  purgeBlacklistedServers();
+};
+
+export const updateServerState = async () => {
+  const [socketWrites, clients, timeoutValues] = await Promise.all([
+    redisClient.zRangeWithScores(serversSocketWritesPerSecondKey, 0, -1),
+    redisClient.zRangeWithScores(serversClientCountKey, 0, -1),
+    redisClient.zRangeWithScores(serversEventLoopTimeoutKey, 0, -1),
+  ]);
+
   // socket writes
-  const socketWrites = await redisClient.zRangeWithScores(
-    serversSocketWritesPerSecondKey,
-    0,
-    -1,
-  );
   socketWrites.forEach(({ value: id, score: writesPerSecond }) =>
     updateServerStateHistoryArray(id, "socketWrites", writesPerSecond),
   );
   // clients
-  const clients = await redisClient.zRangeWithScores(
-    serversClientCountKey,
-    0,
-    -1,
-  );
   clients.forEach(({ value: id, score: clients }) =>
     updateServerStateHistoryArray(id, "clients", clients),
-  );
-  const timeoutValues = await redisClient.zRangeWithScores(
-    serversEventLoopTimeoutKey,
-    0,
-    -1,
   );
   timeoutValues.forEach(({ value: id, score: timeout }) =>
     updateServerStateHistoryArray(id, "timeouts", timeout),
   );
-
-  await detectTimedOutServers();
-  purgeBlacklistedServers();
 
   updatePps();
 };
@@ -127,30 +108,6 @@ const updatePps = () => {
   provisionsThisSecond = 0;
 };
 
-const syncTerminalUi = () => {
-  const clientsByServerId = new Map(terminalUiRuntimeState.serverLoads);
-  const mpsByServerId = new Map(terminalUiRuntimeState.serverMps);
-
-  // terminalUi.setSnapshot({
-  //   blacklistedServers: [...serverBlacklist.entries()].map(
-  //     ([serverId, startedAt]) => [
-  //       serverId,
-  //       Math.floor((Date.now() - startedAt) / 1000),
-  //     ],
-  //   ),
-  //   childServers: [...childServerMap.entries()].map(([serverId, child]) => ({
-  //     clients: clientsByServerId.get(serverId) ?? 0,
-  //     isKilled: child.process.killed,
-  //     mps: mpsByServerId.get(serverId) ?? 0,
-  //     pid: child.process.pid,
-  //     serverId,
-  //     state: child.state,
-  //   })),
-  //   status: "running",
-  //   ...runtimeState,
-  // });
-};
-
 const ensureChatRoom = (id: string): ChatRoomState => {
   if (!chatRooms.has(id)) {
     const empty = () =>
@@ -164,7 +121,7 @@ const ensureChatRoom = (id: string): ChatRoomState => {
   return chatRooms.get(id)!;
 };
 
-const updateState = async () => {
+export const updateChatRoomState = async () => {
   const [socketWrites, messages, clients] = await Promise.all([
     redisClient.zRangeWithScores(chatRoomSocketWritesPerSecondKey, 0, -1),
     redisClient.zRangeWithScores(chatRoomMessagesPerSecondKey, 0, -1),
@@ -192,8 +149,8 @@ const updateState = async () => {
 
 export const startIntervals = () => {
   setInterval(async () => {
-    await updateState();
     await healthChecks();
-    // syncTerminalUi();
+    await updateServerState();
+    await updateChatRoomState();
   }, 1000);
 };

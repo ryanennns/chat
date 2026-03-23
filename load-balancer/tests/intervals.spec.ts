@@ -1,7 +1,21 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { healthChecks } from "@load-balancer/src/intervals.js";
+import {
+  healthChecks,
+  updateChatRoomState,
+  updateServerState,
+} from "@load-balancer/src/intervals.js";
 import { v4 } from "uuid";
 import { serverBlacklist } from "@load-balancer/src/utils.js";
+import {
+  chatRoomMessagesPerSecondKey,
+  chatRoomSocketWritesPerSecondKey,
+  chatRoomTotalClientsKey,
+  defaultServerState,
+  serversClientCountKey,
+  serversEventLoopTimeoutKey,
+  serversSocketWritesPerSecondKey,
+} from "@chat/shared";
+import { chatRooms, socketServers } from "@load-balancer/src/state.js";
 
 const mockRedisClient = vi.hoisted(() => ({
   connect: vi.fn(),
@@ -33,6 +47,9 @@ describe("intervals", () => {
   beforeEach(() => {
     mockedRemoveServerFromRedis.mockClear();
     serverBlacklist.clear();
+    chatRooms.clear();
+    socketServers.clear();
+    vi.useRealTimers();
   });
 
   describe("healthChecks", () => {
@@ -67,6 +84,111 @@ describe("intervals", () => {
 
       expect(serverBlacklist.size).toBe(0);
       expect(mockedRemoveServerFromRedis).toHaveBeenCalledOnce();
+    });
+  });
+
+  describe("updateServerState", () => {
+    it("pushes latest values to load balancer state", async () => {
+      const serverUuid = v4();
+      socketServers.set(serverUuid, {
+        server: {
+          id: serverUuid,
+          url: "ws://localhost:3001",
+        },
+        process: {
+          kill: vi.fn(),
+        } as never,
+        state: defaultServerState(),
+      });
+
+      let serverState = socketServers.get(serverUuid);
+
+      expect(serverState?.state.socketWrites.at(-1)).toBe(0);
+      expect(serverState?.state.clients.at(-1)).toBe(0);
+      expect(serverState?.state.timeouts.at(-1)).toBe(0);
+
+      mockRedisClient.zRangeWithScores = vi
+        .fn()
+        .mockReturnValueOnce([
+          {
+            value: serverUuid,
+            score: 1,
+          },
+        ])
+        .mockReturnValueOnce([
+          {
+            value: serverUuid,
+            score: 2,
+          },
+        ])
+        .mockReturnValueOnce([
+          {
+            value: serverUuid,
+            score: 3,
+          },
+        ]);
+
+      await updateServerState();
+
+      expect(mockRedisClient.zRangeWithScores).toHaveBeenCalledTimes(3);
+      [
+        serversSocketWritesPerSecondKey,
+        serversClientCountKey,
+        serversEventLoopTimeoutKey,
+      ].forEach((v) =>
+        expect(mockRedisClient.zRangeWithScores).toHaveBeenCalledWith(v, 0, -1),
+      );
+
+      serverState = socketServers.get(serverUuid);
+      expect(serverState?.state.socketWrites.at(-1)).toBe(1);
+      expect(serverState?.state.clients.at(-1)).toBe(2);
+      expect(serverState?.state.timeouts.at(-1)).toBe(3);
+    });
+  });
+
+  describe("updateChatRoomState", () => {
+    it("pushes latest values to chat room state", async () => {
+      const chatRoomId = v4();
+      let chatRoomState = chatRooms.get(chatRoomId);
+
+      expect(chatRoomState).toBeUndefined();
+
+      mockRedisClient.zRangeWithScores = vi
+        .fn()
+        .mockReturnValueOnce([
+          {
+            value: chatRoomId,
+            score: 1,
+          },
+        ])
+        .mockReturnValueOnce([
+          {
+            value: chatRoomId,
+            score: 2,
+          },
+        ])
+        .mockReturnValueOnce([
+          {
+            value: chatRoomId,
+            score: 3,
+          },
+        ]);
+
+      await updateChatRoomState();
+
+      expect(mockRedisClient.zRangeWithScores).toHaveBeenCalledTimes(3);
+      [
+        chatRoomSocketWritesPerSecondKey,
+        chatRoomMessagesPerSecondKey,
+        chatRoomTotalClientsKey,
+      ].forEach((v) =>
+        expect(mockRedisClient.zRangeWithScores).toHaveBeenCalledWith(v, 0, -1),
+      );
+
+      chatRoomState = chatRooms.get(chatRoomId);
+      expect(chatRoomState?.socketWritesPerSecond.at(-1)).toBe(1);
+      expect(chatRoomState?.messagesPerSecond.at(-1)).toBe(2);
+      expect(chatRoomState?.clients.at(-1)).toBe(3);
     });
   });
 });

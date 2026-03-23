@@ -27,7 +27,7 @@ vi.mock("@load-balancer/src/utils.ts", () => ({
   runtimeState,
 }));
 
-import { provisionServer } from "@load-balancer/src/controllers/servers.provision.ts";
+import { provisionServer } from "@load-balancer/src/controllers/servers.provision.js";
 
 describe("servers.provision", () => {
   beforeEach(() => {
@@ -77,7 +77,5 @@ describe("servers.provision", () => {
     expect(response.status).toHaveBeenCalledWith(200);
     expect(response.json).toHaveBeenCalledOnce();
     expect(response.json).toHaveBeenCalledWith(server);
-    expect(runtimeState.provisionCount).toBe(1);
-    expect(runtimeState.lastProvisionedServer).toBe(server.id);
   });
 });
