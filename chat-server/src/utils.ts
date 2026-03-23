@@ -7,10 +7,8 @@ import {
 import WebSocket from "ws";
 
 export let redistributeBy = 0;
+export let redistributeFrom: string | undefined = undefined;
 export const setRedistributeBy = (number: number) => (redistributeBy = number);
-export const REQUEST_HELP_EVERY_MS = 10_000;
-export const EVENTLOOP_TIMEOUT_THRESHOLD_MS = 15.0;
-// export const REDISTRIBUTE_BY_FACTOR = 0.22;
 export const MESSAGE_BATCH_SIZE = 10;
 
 let lowestLoadServer: Server | undefined = undefined;
@@ -48,7 +46,9 @@ export interface Room {
 }
 
 export const redistributeListener = (message: string) => {
-  redistributeBy = Math.floor(Math.max(Number(message) * 0.15, 1));
+  const payload = JSON.parse(message) as { chatRoom: string; n: number };
+  redistributeFrom = payload.chatRoom;
+  redistributeBy = payload.n;
 };
 
 export const flushRoom = (

@@ -126,14 +126,18 @@ function Graph({
   label,
   data,
   color,
+  trends = true,
+  fmt = (v: number) => String(v),
 }: {
   label: string;
   data: NumericList;
   color: string;
+  trends?: boolean;
+  fmt?: (v: number) => string;
 }) {
-  const t10 = data.lastN(10).trendScore();
-  const t50 = data.lastN(50).trendScore();
-  const tAll = data.trendScore();
+  const t10 = trends ? data.lastN(10).trendScore() : 0;
+  const t50 = trends ? data.lastN(50).trendScore() : 0;
+  const tAll = trends ? data.trendScore() : 0;
 
   const Trend = ({ score, label }: { score: number; label: string }) => (
     <span className="graph-trend" style={{ color: trendColor(score) }}>
@@ -147,11 +151,15 @@ function Graph({
       <div className="graph-meta">
         <span className="graph-label">{label}</span>
         <span className="graph-current" style={{ color }}>
-          {data.last() ?? 0}
+          {fmt(data.last() ?? 0)}
         </span>
-        <Trend score={t10} label="10" />
-        <Trend score={t50} label="50" />
-        <Trend score={tAll} label={`${data.length}`} />
+        {trends && (
+          <>
+            <Trend score={t10} label="10" />
+            <Trend score={t50} label="50" />
+            <Trend score={tAll} label={`${data.length}`} />
+          </>
+        )}
       </div>
       <Sparkline data={data} color={color} />
     </div>
@@ -169,6 +177,13 @@ function ServerCard({ s }: { s: SocketServer }) {
       <div className="server-graphs">
         <Graph label="clients" data={s.state.clients} color="#7d9fc5" />
         <Graph label="swps" data={swpsDeltas} color="#3fb950" />
+        <Graph
+          label="event loop"
+          data={s.state.timeouts}
+          color="#d29922"
+          trends={false}
+          fmt={(v) => v.toFixed(2)}
+        />
       </div>
     </div>
   );

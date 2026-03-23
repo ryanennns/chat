@@ -1,24 +1,26 @@
-import { redisClient, serverBlacklist } from "./utils.ts";
+import { redisClient, serverBlacklist, spawnServer } from "./utils.ts";
 import {
   chatRoomCumulativeMessages,
   chatRoomCumulativeSocketWrites,
   chatRoomTotalClientsKey,
+  debugLog,
   type HistoryKey,
   NumericList,
+  redisRedistributeChannelFactory,
   redisServerKeyFactory,
   removeServerFromRedis,
   serversClientCountKey,
+  serversCumulativeSocketWritesKey,
   serversEventLoopTimeoutKey,
   serversHeartbeatKey,
-  serversCumulativeSocketWritesKey,
 } from "@chat/shared";
 import {
   chatRooms,
+  type ChatRoomState,
   ppsHistory,
   provisionsThisSecond,
   resetProvisionsThisSecond,
   setPps,
-  type ChatRoomState,
   socketServers,
 } from "./state.ts";
 
@@ -102,7 +104,8 @@ export const updateServerState = async () => {
     );
 
     for (const [key, value] of rooms) {
-      socketServers.get(cp.server.id)!.state.chatRooms[key] = Number(value);
+      socketServers.get(cp.server.id)!.state.chatRooms[key.split("chat:")[1]] =
+        Number(value);
     }
   }
 
@@ -152,54 +155,104 @@ export const updateChatRoomState = async () => {
 
 export const startIntervals = () => {
   setInterval(async () => {
-    console.log(
-      JSON.stringify(
-        {
-          servers: [...socketServers.values()].map((s) => ({
-            clients: s.state.clients.lastN(10).trendScore(),
-            socketWrites: s.state.socketWrites.lastN(10).deltas().trendScore(),
-            timeouts: s.state.timeouts.lastN(10).deltas().trendScore(),
-            chatRooms: s.state.chatRooms,
-          })),
-          chatRooms: [...chatRooms.values()].map((chatRoom) => ({
-            clients: chatRoom.clients.lastN(10).trendScore(),
-            cumulativeMessages: chatRoom.cumulativeMessages
-              .lastN(10)
-              .deltas()
-              .trendScore(),
-            cumulativeSocketWrites: chatRoom.cumulativeSocketWrites
-              .lastN(10)
-              .deltas()
-              .trendScore(),
-          })),
-        },
-        null,
-        2,
-      ),
-    );
-
     await healthChecks();
     await updateServerState();
     await updateChatRoomState();
 
     await decideWhatToDoNext();
+    resetAddressingServers();
   }, 1000);
 };
 
+const addressingServer: Record<string, number> = {};
+const ADDRESSING_SERVER_TIMEOUT = 15_000;
+const resetAddressingServers = () => {
+  Object.keys(addressingServer).forEach((key) => {
+    if (Date.now() - addressingServer[key] > ADDRESSING_SERVER_TIMEOUT) {
+      delete addressingServer[key];
+    }
+  });
+};
+
+const SPAWN_NEW_SERVER = 70_000;
+const otherServersDoNotHaveCapacity = () => {
+  let hasCapacity = false;
+  for (let [_, wss] of socketServers) {
+    if (
+      wss.state.socketWrites
+        .deltas()
+        .lastN(3)
+        .filter((n) => n < SPAWN_NEW_SERVER * 0.8).length
+    ) {
+      hasCapacity = true;
+    }
+  }
+
+  return !hasCapacity;
+};
 export const decideWhatToDoNext = async () => {
-  for (let [_, p] of socketServers) {
-    p.state.socketWrites
+  for (let [serverId, wss] of socketServers) {
+    const socketWriteDeltas = wss.state.socketWrites.deltas();
+    const aboveSocketWriteBreakpointInLastTenSeconds =
+      socketWriteDeltas.lastN(10).filter((d) => d >= SPAWN_NEW_SERVER).length >
+      1;
+
+    // const socketThroughputTrendingUpwardAcrossLastMinute =
+    //   socketWriteDeltas.lastN(60).trendScore() > 0.4;
+    // const socketThroughputTrendingUpwardAcrossLastHundredSeconds =
+    //   socketWriteDeltas.trendScore() > 0.2;
+
+    if (
+      aboveSocketWriteBreakpointInLastTenSeconds &&
+      otherServersDoNotHaveCapacity()
+    ) {
+      if (
+        Date.now() - (addressingServer[serverId] ?? 0) >
+        ADDRESSING_SERVER_TIMEOUT
+      ) {
+        addressingServer[serverId] = Date.now();
+        void spawnServer();
+        debugLog("met criteria for new server spawn");
+      }
+    }
+
+    const shouldRedistribute =
+      socketWriteDeltas.lastN(5).filter((d) => d >= SPAWN_NEW_SERVER).length >
+      1;
+    if (shouldRedistribute) {
+      const serverChatRoomLoads: Record<string, number> = {};
+      Object.keys(wss.state.chatRooms).forEach((chatRoomId) => {
+        const chatRoom = chatRooms.get(chatRoomId);
+
+        if (!chatRoom) {
+          return;
+        }
+
+        serverChatRoomLoads[chatRoomId] =
+          chatRoom.cumulativeMessages.deltas().lastN(3).average() *
+          wss.state.chatRooms[chatRoomId];
+      });
+
+      let keyOfHighestLoadChatRoomOnServer: string | undefined = undefined;
+      let maxValue = 0;
+      for (const [key, value] of Object.entries(serverChatRoomLoads)) {
+        if (value > maxValue) {
+          maxValue = value;
+          keyOfHighestLoadChatRoomOnServer = key;
+        }
+      }
+
+      if (!keyOfHighestLoadChatRoomOnServer) {
+        throw new Error("how did you do this");
+      }
+
+      void redisClient.publish(
+        redisRedistributeChannelFactory(serverId),
+        JSON.stringify({
+          chatRoom: keyOfHighestLoadChatRoomOnServer,
+          n: wss.state.chatRooms[keyOfHighestLoadChatRoomOnServer!] * 0.15,
+        }),
+      );
+    }
   }
-
-  for (let [key, chatRoom] of chatRooms) {
-    const numberOfClients = chatRoom.clients;
-    const messagesPerSecond = chatRoom.cumulativeMessages.deltas();
-    const socketWritesPerSecond = chatRoom.cumulativeSocketWrites.deltas();
-
-    const posesThreatToServer = messagesPerSecond
-
-    const last100Seconds = messagesPerSecond.trendScore();
-    const last50Seconds = messagesPerSecond.lastN(50).trendScore();
-    const last10Seconds = messagesPerSecond.lastN(10).trendScore();
-  }
-}
+};
