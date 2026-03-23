@@ -165,16 +165,6 @@ const updateMetrics = () => {
     });
     socketWritesPerChannelThisSecond[key] = 0;
   });
-  Object.keys(messagesSentPerChannelThisSecond).forEach((key) => {
-    // todo -- the obvious problem with this approach is that
-    // for the n number of servers that are receiving messages
-    // for a given chat room, all n of them will be trying
-    // to zAdd simultaneously. This doesn't introduce data
-    // integrity issues I don't think, seeing as they should
-    // all produce the same numbers; but boy oh boy is writing
-    // over the same redis key n times with the same value an
-    // annoying compromise to have to make.
-  });
   void redisClient.zAdd(serversChatRoomsCountKey, {
     score: chatRoomCount,
     value: serverId,
