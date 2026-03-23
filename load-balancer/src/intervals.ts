@@ -6,7 +6,8 @@ import {
   serverBlacklist,
 } from "./utils.ts";
 import {
-  chatRoomTotalMessagesKey,
+  chatRoomMessagesPerSecondKey,
+  chatRoomSocketWritesPerSecondKey,
   type HistoryKey,
   NumericList,
   redisServerKeyFactory,
@@ -80,7 +81,7 @@ const updateServerStateHistoryArray = (
 
 const setServerChatRoomState = (id: string, value: Record<string, number>) => {
   if (childServerMap.has(id)) {
-    childServerMap.get(id)!.state["chatRooms"] = value;
+    childServerMap.get(id)!.state["chatRoomMessages"] = value;
   }
 };
 
@@ -111,43 +112,40 @@ export const healthChecks = async () => {
   timeoutValues.forEach(({ value: id, score: timeout }) =>
     updateServerStateHistoryArray(id, "timeouts", timeout),
   );
-  const chatRoomMessages = await redisClient.zRangeWithScores(
-    chatRoomTotalMessagesKey,
-    0,
-    -1,
-  );
-  chatRoomMessages.forEach(({ value: id, score: totalMessages }) =>
-    updateServerStateHistoryArray(id, "messages", totalMessages),
-  );
+
+  // const redisData = await redisClient.zRangeWithScores(
+  //     chatRoomMessagesPerSecondKey,
+  //     0,
+  //     -1,
+  // );
+  // redisData.forEach(({value:id,score:messagesPerSecond}) => {
+  //   childServerMap()
+  // })
+
+  // for (const c of [...childServerMap.values()]) {
+  //
+  //   const chatKeys = Object.keys(redisData).filter((k) => k.includes("chat:"));
+  //   const keyValuePairs: Record<string, number> = {};
+  //
+  //   for (let chatKey of chatKeys) {
+  //     keyValuePairs[chatKey.split("chat:")[1]] = Number(redisData[chatKey]);
+  //   }
+  //
+  //   setServerChatRoomState(c.server.id, keyValuePairs);
+  // }
 
   for (const c of [...childServerMap.values()]) {
-    const redisData = await redisClient.hGetAll(
-      redisServerKeyFactory(c.server.id),
-    );
-    const chatKeys = Object.keys(redisData).filter((k) => k.includes("chat:"));
-    const keyValuePairs: Record<string, number> = {};
-
-    for (let chatKey of chatKeys) {
-      keyValuePairs[chatKey.split("chat:")[1]] = Number(redisData[chatKey]);
-    }
-
-    setServerChatRoomState(c.server.id, keyValuePairs);
-  }
-
-  for (const c of [...childServerMap.values()]) {
-    for (let chatRoomKey in c.state.chatRooms) {
+    for (let chatRoomKey in c.state.chatRoomMessages) {
       const list = chatRoomClientHistory[chatRoomKey] ?? new NumericList();
-      const chats = list.deltas()[list.length - 1] ?? 0;
-      const clients = c.state.chatRooms[chatRoomKey]
-
-      const socketWrites = chats * clients;
 
       if (!c.state.chatRoomSocketWrites[chatRoomKey]) {
-        c.state.chatRoomSocketWrites[chatRoomKey] = new NumericList(...Array.from({length:100}).map(() => 0))
+        c.state.chatRoomSocketWrites[chatRoomKey] = new NumericList(
+          ...Array.from({ length: 100 }).map(() => 0),
+        );
       }
 
-      c.state.chatRoomSocketWrites[chatRoomKey].shift()
-      c.state.chatRoomSocketWrites[chatRoomKey].push(socketWrites);
+      c.state.chatRoomSocketWrites[chatRoomKey].shift();
+      c.state.chatRoomSocketWrites[chatRoomKey].push(list[list.length - 1]);
     }
   }
 
@@ -197,13 +195,15 @@ const syncTerminalUi = () => {
 
 const updateState = async () => {
   const values = await redisClient.zRangeWithScores(
-    chatRoomTotalMessagesKey,
+    chatRoomSocketWritesPerSecondKey,
     0,
     -1,
   );
   values.forEach(({ value, score }) => {
     if (!chatRoomClientHistory[value]) {
-      chatRoomClientHistory[value] = new NumericList(...Array.from({length:100}).map(() => 0));
+      chatRoomClientHistory[value] = new NumericList(
+        ...Array.from({ length: 100 }).map(() => 0),
+      );
     }
     chatRoomClientHistory[value].shift();
     chatRoomClientHistory[value].push(score);

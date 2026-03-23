@@ -35,7 +35,7 @@ export interface ServerState {
   socketWrites: NumericList;
   timeouts: NumericList;
   messages: NumericList;
-  chatRooms: Record<string, number>;
+  chatRoomMessages: Record<string, number>;
   chatRoomSocketWrites: Record<string, NumericList>;
 }
 export const defaultServerState = (): ServerState => ({
@@ -43,7 +43,7 @@ export const defaultServerState = (): ServerState => ({
   socketWrites: new NumericList(...Array.from({ length: 100 }).map(() => 0)),
   timeouts: new NumericList(...Array.from({ length: 100 }).map(() => 0)),
   messages: new NumericList(...Array.from({ length: 100 }).map(() => 0)),
-  chatRooms: {},
+  chatRoomMessages: {},
   chatRoomSocketWrites: {},
 });
 
@@ -53,7 +53,8 @@ export const serversChatRoomsCountKey = "servers:chats";
 export const serversHeartbeatKey = "servers:heartbeat";
 export const serversSocketWritesPerSecondKey = "servers:swps";
 export const serversEventLoopTimeoutKey = "servers:event-loop";
-export const chatRoomTotalMessagesKey = "chat-rooms:messages";
+export const chatRoomSocketWritesPerSecondKey = "chat-rooms:socket-writes";
+export const chatRoomMessagesPerSecondKey = "chat-rooms:messages";
 export const chatRoomTotalClientsKey = "chat-rooms:clients";
 export const redisRedistributeChannelFactory = (serverId: string) =>
   `${serverId}-${redistributeChannel}`;

@@ -4,7 +4,7 @@ import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
 import path from "node:path";
 import {
   chatRoomTotalClientsKey,
-  chatRoomTotalMessagesKey,
+  chatRoomSocketWritesPerSecondKey,
   debugLog,
   defaultServerState,
   redisServerKeyFactory,
@@ -54,7 +54,7 @@ export const shutdown = async () => {
       await removeServerFromRedis(id);
       childServerMapElement.process.kill(1);
     }
-    await redisClient.del(chatRoomTotalMessagesKey);
+    await redisClient.del(chatRoomSocketWritesPerSecondKey);
     await redisClient.del(chatRoomTotalClientsKey);
   } catch {
     redisClient.destroy();

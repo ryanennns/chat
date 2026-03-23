@@ -320,26 +320,25 @@ export function Monitor() {
                     ?.score ?? 0),
               )
               .map((mc) => {
-                const prev = prevMessageCounts.current.find(
-                  (p) => p.value === mc.value,
-                );
-                const delta = prev ? mc.score - prev.score : 0;
+                console.log(stats.servers);
+
+                const delta = mc.score;
 
                 const clients =
                   stats.chatRooms.clientCounts.find((c) => c.value === mc.value)
                     ?.score ?? 0;
 
-                const swps = stats.servers.reduce(
-                  (sum, s) => sum + (s.chatRoomSocketWrites?.[mc.value] ?? 0),
+                const msgs = stats.servers.reduce(
+                  (sum, s) => sum + (s.chatRooms?.[mc.value] ?? 0),
                   0,
                 );
 
                 return (
                   <div key={mc.value} className="room-row">
                     <span className="room-name">{mc.value}</span>
-                    <span className="room-clients">{clients}</span>
-                    <span className="room-msgs">{delta}</span>
-                    <span className="room-swps">{swps}</span>
+                    <span className="room-clients">c:{clients}</span>
+                    <span className="room-msgs">m:{msgs}</span>
+                    <span className="room-swps">s:{delta}</span>
                   </div>
                 );
               })}

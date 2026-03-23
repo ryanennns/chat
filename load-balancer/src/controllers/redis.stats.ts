@@ -2,7 +2,7 @@ import type { Request, Response } from "express";
 import { childServerMap, redisClient } from "../utils.ts";
 import {
   serversHeartbeatKey,
-  chatRoomTotalMessagesKey,
+  chatRoomSocketWritesPerSecondKey,
   chatRoomTotalClientsKey,
 } from "@chat/shared";
 
@@ -11,7 +11,7 @@ export const redisStats = async (_req: Request, res: Response) => {
 
   const [heartbeats, messageCounts, clientCounts] = await Promise.all([
     redisClient.zRangeWithScores(serversHeartbeatKey, 0, -1),
-    redisClient.zRangeWithScores(chatRoomTotalMessagesKey, 0, -1),
+    redisClient.zRangeWithScores(chatRoomSocketWritesPerSecondKey, 0, -1),
     redisClient.zRangeWithScores(chatRoomTotalClientsKey, 0, -1),
   ]);
 
@@ -30,14 +30,14 @@ export const redisStats = async (_req: Request, res: Response) => {
       id,
       url: server.url,
       clients: state.clients[last] ?? 0,
-      chatRooms: state.chatRooms,
+      chatRooms: state.chatRoomMessages,
       chatRoomSocketWrites,
       mps: state.socketWrites[last] ?? 0,
       eventLoopTimeout: state.timeouts[last] ?? 0,
       heartbeatAgeMs: now - (heartbeatMap.get(id) ?? 0),
       history: {
         clients: state.clients,
-        chatRooms: state.chatRooms,
+        chatRooms: state.chatRoomMessages,
         socketWrites: state.socketWrites,
         timeouts: state.timeouts,
         chatRoomSocketWrites: Object.fromEntries(

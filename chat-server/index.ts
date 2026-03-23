@@ -5,7 +5,7 @@ import {
   addServerToRedis,
   ChatPayload,
   chatRoomTotalClientsKey,
-  chatRoomTotalMessagesKey,
+  chatRoomSocketWritesPerSecondKey,
   debugLog,
   redisChatCountKeyFactory,
   redisRedistributeChannelFactory,
@@ -18,6 +18,7 @@ import {
   serversHeartbeatKey,
   serversSocketWritesPerSecondKey,
   type WebSocketMessage,
+  chatRoomMessagesPerSecondKey,
 } from "@chat/shared";
 import {
   ClientSocket,
@@ -146,6 +147,7 @@ await subscriber.subscribe(
 );
 
 let socketWritesThisSecond = 0;
+const socketWritesPerChannelThisSecond: Record<string, number> = {};
 const updateMetrics = () => {
   void redisClient.zAdd(serversHeartbeatKey, {
     score: Date.now(),
@@ -156,6 +158,28 @@ const updateMetrics = () => {
     value: serverId,
   });
   socketWritesThisSecond = 0;
+  Object.keys(socketWritesPerChannelThisSecond).forEach((key) => {
+    void redisClient.zAdd(chatRoomSocketWritesPerSecondKey, {
+      score: socketWritesPerChannelThisSecond[key],
+      value: key,
+    });
+    socketWritesPerChannelThisSecond[key] = 0;
+  });
+  Object.keys(messagesSentPerChannelThisSecond).forEach((key) => {
+    // todo -- the obvious problem with this approach is that
+    // for the n number of servers that are receiving messages
+    // for a given chat room, all n of them will be trying
+    // to zAdd simultaneously. This doesn't introduce data
+    // integrity issues I don't think, seeing as they should
+    // all produce the same numbers; but boy oh boy is writing
+    // over the same redis key n times with the same value an
+    // annoying compromise to have to make.
+    void redisClient.zAdd(chatRoomMessagesPerSecondKey, {
+      score: messagesSentPerChannelThisSecond[key],
+      value: key,
+    });
+    messagesSentPerChannelThisSecond[key] = 0;
+  });
   void redisClient.zAdd(serversChatRoomsCountKey, {
     score: chatRoomCount,
     value: serverId,
@@ -212,7 +236,18 @@ const registerSocket = async (
 
       room.queue.push(message);
       if (!room.running) {
-        flushRoom(room, () => socketWritesThisSecond++);
+        flushRoom(room, (socket: ClientSocket) => {
+          socketWritesThisSecond++;
+          if (!socket.chatId) {
+            return;
+          }
+
+          if (!socketWritesPerChannelThisSecond[socket.chatId]) {
+            socketWritesPerChannelThisSecond[socket.chatId] = 0;
+          }
+
+          socketWritesPerChannelThisSecond[socket.chatId] += 1;
+        });
       }
     });
   }
@@ -222,6 +257,7 @@ const registerSocket = async (
   rooms.get(chatChannel)?.clients.add(socket);
 };
 
+const messagesSentPerChannelThisSecond: Record<string, number> = {};
 const publishChat = async (
   message: WebSocketMessage<ChatPayload>,
   socket: ClientSocket,
@@ -230,7 +266,10 @@ const publishChat = async (
     return;
   }
 
-  void redisClient.zIncrBy(chatRoomTotalMessagesKey, 1, socket.chatId);
+  if (!messagesSentPerChannelThisSecond[socket.chatId]) {
+    messagesSentPerChannelThisSecond[socket.chatId] = 0;
+  }
+  messagesSentPerChannelThisSecond[socket.chatId] += 1;
   await redisClient.publish(socket.chatId, JSON.stringify(message.payload));
 };
 
