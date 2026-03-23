@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import { redisClient } from "../utils.ts";
-import { serversHeartbeatKey, redisServerKeyFactory } from "@chat/shared";
+import { redisServerKeyFactory, serversHeartbeatKey } from "@chat/shared";
 import { chatRooms, socketServers } from "../state.ts";
 
 export const redisStats = async (_req: Request, res: Response) => {
@@ -45,17 +45,15 @@ export const redisStats = async (_req: Request, res: Response) => {
   servers.sort((a, b) => a.id.localeCompare(b.id));
 
   const chatRoomList = [...chatRooms.entries()].map(([id, room]) => {
-    const last = room.clients.length - 1;
-    const deltas = room.cumulativeMessages.deltas();
     return {
       id,
-      clients: room.clients[last] ?? 0,
-      messagesPerSecond: deltas[deltas.length - 1],
-      socketWritesPerSecond: room.socketWritesPerSecond[last] ?? 0,
+      clients: room.clients.last() ?? 0,
+      messagesPerSecond: room.cumulativeMessages.deltas().last(),
+      socketWritesPerSecond: room.cumulativeSocketWrites.deltas().last(),
       history: {
         clients: room.clients,
         messagesPerSecond: room.cumulativeMessages,
-        socketWritesPerSecond: room.socketWritesPerSecond,
+        socketWritesPerSecond: room.cumulativeSocketWrites,
       },
     };
   });

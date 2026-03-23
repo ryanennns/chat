@@ -4,7 +4,7 @@ import type { ChildProcessWithoutNullStreams } from "node:child_process";
 export interface ChatRoomState {
   clients: NumericList;
   cumulativeMessages: NumericList;
-  socketWritesPerSecond: NumericList;
+  cumulativeSocketWrites: NumericList;
 }
 
 export interface ChildProcess {

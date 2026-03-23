@@ -1,6 +1,7 @@
 import { redisClient, serverBlacklist } from "./utils.ts";
 import {
   chatRoomCumulativeMessages,
+  chatRoomCumulativeSocketWrites,
   chatRoomSocketWritesPerSecondKey,
   chatRoomTotalClientsKey,
   type HistoryKey,
@@ -110,7 +111,7 @@ const ensureChatRoom = (id: string): ChatRoomState => {
     chatRooms.set(id, {
       clients: empty(),
       cumulativeMessages: empty(),
-      socketWritesPerSecond: empty(),
+      cumulativeSocketWrites: empty(),
     });
   }
   return chatRooms.get(id)!;
@@ -118,15 +119,15 @@ const ensureChatRoom = (id: string): ChatRoomState => {
 
 export const updateChatRoomState = async () => {
   const [socketWrites, messages, clients] = await Promise.all([
-    redisClient.zRangeWithScores(chatRoomSocketWritesPerSecondKey, 0, -1),
+    redisClient.zRangeWithScores(chatRoomCumulativeSocketWrites, 0, -1),
     redisClient.zRangeWithScores(chatRoomCumulativeMessages, 0, -1),
     redisClient.zRangeWithScores(chatRoomTotalClientsKey, 0, -1),
   ]);
 
   socketWrites.forEach(({ value: id, score }) => {
     const room = ensureChatRoom(id);
-    room.socketWritesPerSecond.shift();
-    room.socketWritesPerSecond.push(score);
+    room.cumulativeSocketWrites.shift();
+    room.cumulativeSocketWrites.push(score);
   });
 
   messages.forEach(({ value: id, score }) => {

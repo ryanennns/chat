@@ -23,8 +23,20 @@ export class NumericList extends Array<number> {
     this.push(n);
   }
 
+  first() {
+    return this[0];
+  }
+
+  last() {
+    return this[this.length - 1];
+  }
+
   deltas() {
-    return this.map((v, i) => v - (this[i - 1] ?? 0));
+    return this.fromArray(this.map((v, i) => v - (this[i - 1] ?? 0)));
+  }
+
+  fromArray(a: Array<number>) {
+    return new NumericList(...a);
   }
 }
 
@@ -55,6 +67,8 @@ export const serversHeartbeatKey = "servers:heartbeat";
 export const serversSocketWritesPerSecondKey = "servers:swps";
 export const serversEventLoopTimeoutKey = "servers:event-loop";
 export const chatRoomSocketWritesPerSecondKey = "chat-rooms:socket-writes";
+export const chatRoomCumulativeSocketWrites =
+  "chat-rooms:cumulative-socket-writes";
 export const chatRoomCumulativeMessages = "chat-rooms:messages";
 export const chatRoomTotalClientsKey = "chat-rooms:clients";
 export const redisRedistributeChannelFactory = (serverId: string) =>

@@ -224,7 +224,7 @@ export function Monitor() {
       const res = await fetch("/api/redis-stats");
       if (!res.ok) throw new Error(`${res.status}`);
       const data: RedisStats = await res.json();
-      console.log(data)
+      console.log(data);
       setStats(data);
       setStatus("ok");
       setLastUpdated(new Date().toLocaleTimeString("en-US", { hour12: false }));

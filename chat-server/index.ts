@@ -19,6 +19,7 @@ import {
   serversSocketWritesPerSecondKey,
   type WebSocketMessage,
   chatRoomCumulativeMessages,
+  chatRoomCumulativeSocketWrites,
 } from "@chat/shared";
 import {
   ClientSocket,
@@ -226,6 +227,12 @@ const registerSocket = async (
           if (!socket.chatId) {
             return;
           }
+
+          void redisClient.zIncrBy(
+            chatRoomCumulativeSocketWrites,
+            1,
+            socket.chatId,
+          );
 
           if (!socketWritesPerChannelThisSecond[socket.chatId]) {
             socketWritesPerChannelThisSecond[socket.chatId] = 0;

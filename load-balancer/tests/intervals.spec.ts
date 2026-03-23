@@ -186,7 +186,7 @@ describe("intervals", () => {
       );
 
       chatRoomState = chatRooms.get(chatRoomId);
-      expect(chatRoomState?.socketWritesPerSecond.at(-1)).toBe(1);
+      expect(chatRoomState?.cumulativeSocketWrites.at(-1)).toBe(1);
       expect(chatRoomState?.cumulativeMessages.at(-1)).toBe(2);
       expect(chatRoomState?.clients.at(-1)).toBe(3);
     });
