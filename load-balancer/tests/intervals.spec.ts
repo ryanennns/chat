@@ -8,7 +8,7 @@ import { v4 } from "uuid";
 import { serverBlacklist } from "@load-balancer/src/utils.js";
 import {
   chatRoomCumulativeMessages,
-  chatRoomSocketWritesPerSecondKey,
+  chatRoomCumulativeSocketWrites,
   chatRoomTotalClientsKey,
   defaultServerState,
   serversClientCountKey,
@@ -20,6 +20,7 @@ import { chatRooms, socketServers } from "@load-balancer/src/state.js";
 const mockRedisClient = vi.hoisted(() => ({
   connect: vi.fn(),
   hGet: vi.fn(),
+  hGetAll: vi.fn(() => []),
   publish: vi.fn(),
   subscribe: vi.fn(),
   zRange: vi.fn(),
@@ -178,7 +179,7 @@ describe("intervals", () => {
 
       expect(mockRedisClient.zRangeWithScores).toHaveBeenCalledTimes(3);
       [
-        chatRoomSocketWritesPerSecondKey,
+        chatRoomCumulativeSocketWrites,
         chatRoomCumulativeMessages,
         chatRoomTotalClientsKey,
       ].forEach((v) =>

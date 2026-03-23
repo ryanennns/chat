@@ -5,7 +5,6 @@ import {
   addServerToRedis,
   ChatPayload,
   chatRoomTotalClientsKey,
-  chatRoomSocketWritesPerSecondKey,
   debugLog,
   redisChatCountKeyFactory,
   redisRedistributeChannelFactory,
@@ -157,14 +156,6 @@ const updateMetrics = () => {
   void redisClient.zAdd(serversSocketWritesPerSecondKey, {
     score: socketWritesThisSecond,
     value: serverId,
-  });
-  socketWritesThisSecond = 0;
-  Object.keys(socketWritesPerChannelThisSecond).forEach((key) => {
-    void redisClient.zAdd(chatRoomSocketWritesPerSecondKey, {
-      score: socketWritesPerChannelThisSecond[key],
-      value: key,
-    });
-    socketWritesPerChannelThisSecond[key] = 0;
   });
   void redisClient.zAdd(serversChatRoomsCountKey, {
     score: chatRoomCount,

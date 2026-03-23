@@ -1,10 +1,10 @@
 import { createClient } from "redis";
-// import { terminalUi } from "../terminal-ui.ts";
-import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
+import { spawn } from "node:child_process";
 import path from "node:path";
 import {
+  chatRoomCumulativeMessages,
+  chatRoomCumulativeSocketWrites,
   chatRoomTotalClientsKey,
-  chatRoomSocketWritesPerSecondKey,
   debugLog,
   defaultServerState,
   redisServerKeyFactory,
@@ -34,7 +34,8 @@ export const shutdown = async () => {
       await removeServerFromRedis(id);
       childServerMapElement.process.kill(1);
     }
-    await redisClient.del(chatRoomSocketWritesPerSecondKey);
+    await redisClient.del(chatRoomCumulativeMessages);
+    await redisClient.del(chatRoomCumulativeSocketWrites);
     await redisClient.del(chatRoomTotalClientsKey);
   } catch {
     redisClient.destroy();
