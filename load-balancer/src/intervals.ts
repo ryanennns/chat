@@ -8,6 +8,7 @@ import {
 import {
   chatRoomMessagesPerSecondKey,
   chatRoomSocketWritesPerSecondKey,
+  chatRoomTotalClientsKey,
   type HistoryKey,
   NumericList,
   redisServerKeyFactory,
@@ -17,7 +18,7 @@ import {
   serversHeartbeatKey,
   serversSocketWritesPerSecondKey,
 } from "@chat/shared";
-import { chatRoomClientHistory } from "./state.ts";
+import { type ChatRoomState, chatRooms } from "./state.ts";
 
 const PPS_SURGE_THRESHOLD = 40;
 
@@ -79,12 +80,6 @@ const updateServerStateHistoryArray = (
   childServerMap.get(id)?.state[key]?.push(value);
 };
 
-const setServerChatRoomState = (id: string, value: Record<string, number>) => {
-  if (childServerMap.has(id)) {
-    childServerMap.get(id)!.state["chatRoomMessages"] = value;
-  }
-};
-
 export const healthChecks = async () => {
   // socket writes
   const socketWrites = await redisClient.zRangeWithScores(
@@ -112,42 +107,6 @@ export const healthChecks = async () => {
   timeoutValues.forEach(({ value: id, score: timeout }) =>
     updateServerStateHistoryArray(id, "timeouts", timeout),
   );
-
-  // const redisData = await redisClient.zRangeWithScores(
-  //     chatRoomMessagesPerSecondKey,
-  //     0,
-  //     -1,
-  // );
-  // redisData.forEach(({value:id,score:messagesPerSecond}) => {
-  //   childServerMap()
-  // })
-
-  // for (const c of [...childServerMap.values()]) {
-  //
-  //   const chatKeys = Object.keys(redisData).filter((k) => k.includes("chat:"));
-  //   const keyValuePairs: Record<string, number> = {};
-  //
-  //   for (let chatKey of chatKeys) {
-  //     keyValuePairs[chatKey.split("chat:")[1]] = Number(redisData[chatKey]);
-  //   }
-  //
-  //   setServerChatRoomState(c.server.id, keyValuePairs);
-  // }
-
-  for (const c of [...childServerMap.values()]) {
-    for (let chatRoomKey in c.state.chatRoomMessages) {
-      const list = chatRoomClientHistory[chatRoomKey] ?? new NumericList();
-
-      if (!c.state.chatRoomSocketWrites[chatRoomKey]) {
-        c.state.chatRoomSocketWrites[chatRoomKey] = new NumericList(
-          ...Array.from({ length: 100 }).map(() => 0),
-        );
-      }
-
-      c.state.chatRoomSocketWrites[chatRoomKey].shift();
-      c.state.chatRoomSocketWrites[chatRoomKey].push(list[list.length - 1]);
-    }
-  }
 
   await detectTimedOutServers();
   purgeBlacklistedServers();
@@ -193,20 +152,42 @@ const syncTerminalUi = () => {
   // });
 };
 
+const ensureChatRoom = (id: string): ChatRoomState => {
+  if (!chatRooms.has(id)) {
+    const empty = () =>
+      new NumericList(...Array.from({ length: 100 }).map(() => 0));
+    chatRooms.set(id, {
+      clients: empty(),
+      messagesPerSecond: empty(),
+      socketWritesPerSecond: empty(),
+    });
+  }
+  return chatRooms.get(id)!;
+};
+
 const updateState = async () => {
-  const values = await redisClient.zRangeWithScores(
-    chatRoomSocketWritesPerSecondKey,
-    0,
-    -1,
-  );
-  values.forEach(({ value, score }) => {
-    if (!chatRoomClientHistory[value]) {
-      chatRoomClientHistory[value] = new NumericList(
-        ...Array.from({ length: 100 }).map(() => 0),
-      );
-    }
-    chatRoomClientHistory[value].shift();
-    chatRoomClientHistory[value].push(score);
+  const [socketWrites, messages, clients] = await Promise.all([
+    redisClient.zRangeWithScores(chatRoomSocketWritesPerSecondKey, 0, -1),
+    redisClient.zRangeWithScores(chatRoomMessagesPerSecondKey, 0, -1),
+    redisClient.zRangeWithScores(chatRoomTotalClientsKey, 0, -1),
+  ]);
+
+  socketWrites.forEach(({ value: id, score }) => {
+    const room = ensureChatRoom(id);
+    room.socketWritesPerSecond.shift();
+    room.socketWritesPerSecond.push(score);
+  });
+
+  messages.forEach(({ value: id, score }) => {
+    const room = ensureChatRoom(id);
+    room.messagesPerSecond.shift();
+    room.messagesPerSecond.push(score);
+  });
+
+  clients.forEach(({ value: id, score }) => {
+    const room = ensureChatRoom(id);
+    room.clients.shift();
+    room.clients.push(score);
   });
 };
 
