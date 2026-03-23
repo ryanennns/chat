@@ -34,6 +34,14 @@ export const terminalUiRuntimeState = {
 
 export const socketServers = new Map<string, ChildProcess>();
 export const chatRooms: Map<string, ChatRoomState> = new Map();
+export const ppsHistory: NumericList = new NumericList(
+  ...Array.from({ length: 100 }).map(() => 0),
+);
+export let pps = 0;
+export let provisionsThisSecond = 0;
+export const incrProvisionsThisSecond = () => provisionsThisSecond++;
+export const setPps = (value: number) => (pps = value);
+export const resetProvisionsThisSecond = () => (provisionsThisSecond = 0);
 export let lastSpawnedServer = Date.now();
 export const setLastSpawnedServer = (time: number) =>
   (lastSpawnedServer = time);

@@ -1,7 +1,6 @@
 import express from "express";
-import { incrProvisionsThisSecond } from "../intervals.ts";
 import { getLowestLoadServer } from "@chat/shared";
-import { terminalUiRuntimeState } from "../state.ts";
+import { incrProvisionsThisSecond } from "../state.ts";
 
 export const provisionServer = async (
   req: express.Request,

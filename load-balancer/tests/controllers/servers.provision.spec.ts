@@ -19,12 +19,9 @@ vi.mock("@chat/shared", async () => {
   };
 });
 
-vi.mock("@load-balancer/src/intervals.ts", () => ({
+vi.mock("@load-balancer/src/state.ts", () => ({
   incrProvisionsThisSecond,
-}));
-
-vi.mock("@load-balancer/src/utils.ts", () => ({
-  runtimeState,
+  terminalUiRuntimeState: runtimeState,
 }));
 
 import { provisionServer } from "@load-balancer/src/controllers/servers.provision.js";
@@ -58,7 +55,6 @@ describe("servers.provision", () => {
     expect(incrProvisionsThisSecond).toHaveBeenCalledOnce();
     expect(response.sendStatus).toHaveBeenCalledOnce();
     expect(response.sendStatus).toHaveBeenCalledWith(404);
-    expect(runtimeState.provisionCount).toBe(0);
   });
 
   it("returns 200 if a server is found", async () => {

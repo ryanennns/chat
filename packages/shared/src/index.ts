@@ -18,6 +18,11 @@ export class NumericList extends Array<number> {
     return this.reduce((a, b) => a + b) / this.length;
   }
 
+  rotate(n: number) {
+    this.shift();
+    this.push(n);
+  }
+
   deltas() {
     return this.map((v, i) => v - (this[i - 1] ?? 0));
   }

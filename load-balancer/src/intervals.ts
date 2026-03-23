@@ -13,6 +13,10 @@ import {
 } from "@chat/shared";
 import {
   chatRooms,
+  ppsHistory,
+  provisionsThisSecond,
+  resetProvisionsThisSecond,
+  setPps,
   type ChatRoomState,
   socketServers,
   terminalUiRuntimeState,
@@ -93,19 +97,10 @@ export const updateServerState = async () => {
 
   updatePps();
 };
-
-export const ppsHistory: NumericList = new NumericList(
-  ...Array.from({ length: 100 }).map(() => 0),
-);
-export let pps = 0;
-export let provisionsThisSecond = 0;
-export const incrProvisionsThisSecond = () => provisionsThisSecond++;
 const updatePps = () => {
-  pps = provisionsThisSecond;
-  terminalUiRuntimeState.pps = pps;
-  ppsHistory.shift();
-  ppsHistory.push(pps);
-  provisionsThisSecond = 0;
+  setPps(provisionsThisSecond);
+  ppsHistory.rotate(provisionsThisSecond);
+  resetProvisionsThisSecond();
 };
 
 const ensureChatRoom = (id: string): ChatRoomState => {
