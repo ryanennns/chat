@@ -20,7 +20,10 @@ export const redisStats = async (_req: Request, res: Response) => {
       const hashFields = await redisClient.hGetAll(redisServerKeyFactory(id));
       const rooms = Object.entries(hashFields)
         .filter(([key]) => key.startsWith("chat:"))
-        .map(([key, val]) => ({ id: key.slice("chat:".length), clients: Number(val) }))
+        .map(([key, val]) => ({
+          id: key.slice("chat:".length),
+          clients: Number(val),
+        }))
         .sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }));
       return {
         id,
@@ -46,16 +49,17 @@ export const redisStats = async (_req: Request, res: Response) => {
     return {
       id,
       clients: room.clients[last] ?? 0,
-      messagesPerSecond: room.messagesPerSecond[last] ?? 0,
+      cumulativeMessages: room.cumulativeMessages[last] ?? 0,
       socketWritesPerSecond: room.socketWritesPerSecond[last] ?? 0,
       history: {
         clients: room.clients,
-        messagesPerSecond: room.messagesPerSecond,
+        messagesPerSecond: room.cumulativeMessages,
         socketWritesPerSecond: room.socketWritesPerSecond,
       },
     };
   });
 
+  console.log(chatRoomList);
   res.json({
     ts: now,
     servers,

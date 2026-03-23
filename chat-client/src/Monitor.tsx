@@ -20,7 +20,7 @@ interface ServerMetrics {
 interface ChatRoomMetrics {
   id: string;
   clients: number;
-  messagesPerSecond: number;
+  cumulativeMessages: number;
   socketWritesPerSecond: number;
 }
 
@@ -304,12 +304,14 @@ export function Monitor() {
               <p className="monitor-empty">no rooms</p>
             )}
             {[...stats.chatRooms]
-              .sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }))
+              .sort((a, b) =>
+                a.id.localeCompare(b.id, undefined, { numeric: true }),
+              )
               .map((room) => (
                 <div key={room.id} className="room-row">
                   <span className="room-name">{room.id}</span>
                   <span className="room-clients">c:{room.clients}</span>
-                  <span className="room-msgs">m:{room.messagesPerSecond}</span>
+                  <span className="room-msgs">m:{room.cumulativeMessages}</span>
                   <span className="room-swps">
                     s:{room.socketWritesPerSecond}
                   </span>

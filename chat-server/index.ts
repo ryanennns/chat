@@ -18,7 +18,7 @@ import {
   serversHeartbeatKey,
   serversSocketWritesPerSecondKey,
   type WebSocketMessage,
-  chatRoomMessagesPerSecondKey,
+  chatRoomCumulativeMessages,
 } from "@chat/shared";
 import {
   ClientSocket,
@@ -174,11 +174,6 @@ const updateMetrics = () => {
     // all produce the same numbers; but boy oh boy is writing
     // over the same redis key n times with the same value an
     // annoying compromise to have to make.
-    void redisClient.zAdd(chatRoomMessagesPerSecondKey, {
-      score: messagesSentPerChannelThisSecond[key],
-      value: key,
-    });
-    messagesSentPerChannelThisSecond[key] = 0;
   });
   void redisClient.zAdd(serversChatRoomsCountKey, {
     score: chatRoomCount,
@@ -270,6 +265,7 @@ const publishChat = async (
     messagesSentPerChannelThisSecond[socket.chatId] = 0;
   }
   messagesSentPerChannelThisSecond[socket.chatId] += 1;
+  void redisClient.zIncrBy(chatRoomCumulativeMessages, 1, socket.chatId);
   await redisClient.publish(socket.chatId, JSON.stringify(message.payload));
 };
 

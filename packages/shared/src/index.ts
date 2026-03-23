@@ -55,7 +55,7 @@ export const serversHeartbeatKey = "servers:heartbeat";
 export const serversSocketWritesPerSecondKey = "servers:swps";
 export const serversEventLoopTimeoutKey = "servers:event-loop";
 export const chatRoomSocketWritesPerSecondKey = "chat-rooms:socket-writes";
-export const chatRoomMessagesPerSecondKey = "chat-rooms:messages";
+export const chatRoomCumulativeMessages = "chat-rooms:messages";
 export const chatRoomTotalClientsKey = "chat-rooms:clients";
 export const redisRedistributeChannelFactory = (serverId: string) =>
   `${serverId}-${redistributeChannel}`;

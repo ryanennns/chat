@@ -7,7 +7,7 @@ import {
 import { v4 } from "uuid";
 import { serverBlacklist } from "@load-balancer/src/utils.js";
 import {
-  chatRoomMessagesPerSecondKey,
+  chatRoomCumulativeMessages,
   chatRoomSocketWritesPerSecondKey,
   chatRoomTotalClientsKey,
   defaultServerState,
@@ -179,7 +179,7 @@ describe("intervals", () => {
       expect(mockRedisClient.zRangeWithScores).toHaveBeenCalledTimes(3);
       [
         chatRoomSocketWritesPerSecondKey,
-        chatRoomMessagesPerSecondKey,
+        chatRoomCumulativeMessages,
         chatRoomTotalClientsKey,
       ].forEach((v) =>
         expect(mockRedisClient.zRangeWithScores).toHaveBeenCalledWith(v, 0, -1),
@@ -187,7 +187,7 @@ describe("intervals", () => {
 
       chatRoomState = chatRooms.get(chatRoomId);
       expect(chatRoomState?.socketWritesPerSecond.at(-1)).toBe(1);
-      expect(chatRoomState?.messagesPerSecond.at(-1)).toBe(2);
+      expect(chatRoomState?.cumulativeMessages.at(-1)).toBe(2);
       expect(chatRoomState?.clients.at(-1)).toBe(3);
     });
   });
