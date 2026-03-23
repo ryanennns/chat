@@ -2,10 +2,10 @@ import { redisClient, serverBlacklist } from "./utils.ts";
 import {
   chatRoomCumulativeMessages,
   chatRoomCumulativeSocketWrites,
-  chatRoomSocketWritesPerSecondKey,
   chatRoomTotalClientsKey,
   type HistoryKey,
   NumericList,
+  redisServerKeyFactory,
   removeServerFromRedis,
   serversClientCountKey,
   serversEventLoopTimeoutKey,
@@ -93,6 +93,19 @@ export const updateServerState = async () => {
     updateServerStateHistoryArray(id, "timeouts", timeout),
   );
 
+  for (const cp of [...socketServers.values()]) {
+    const hashFields = await redisClient.hGetAll(
+      redisServerKeyFactory(cp.server.id),
+    );
+    const rooms = Object.entries(hashFields).filter(([key]) =>
+      key.startsWith("chat:"),
+    );
+
+    for (const [key, value] of rooms) {
+      socketServers.get(cp.server.id)!.state.chatRooms[key] = Number(value);
+    }
+  }
+
   updatePps();
 };
 const updatePps = () => {
@@ -101,7 +114,7 @@ const updatePps = () => {
   resetProvisionsThisSecond();
 };
 
-const ensureChatRoom = (id: string): ChatRoomState => {
+const ensureChatRoomExists = (id: string): ChatRoomState => {
   if (!chatRooms.has(id)) {
     const empty = () =>
       new NumericList(...Array.from({ length: 100 }).map(() => 0));
@@ -122,19 +135,19 @@ export const updateChatRoomState = async () => {
   ]);
 
   socketWrites.forEach(({ value: id, score }) => {
-    const room = ensureChatRoom(id);
+    const room = ensureChatRoomExists(id);
     room.cumulativeSocketWrites.shift();
     room.cumulativeSocketWrites.push(score);
   });
 
   messages.forEach(({ value: id, score }) => {
-    const room = ensureChatRoom(id);
+    const room = ensureChatRoomExists(id);
     room.cumulativeMessages.shift();
     room.cumulativeMessages.push(score);
   });
 
   clients.forEach(({ value: id, score }) => {
-    const room = ensureChatRoom(id);
+    const room = ensureChatRoomExists(id);
     room.clients.shift();
     room.clients.push(score);
   });

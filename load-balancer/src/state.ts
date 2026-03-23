@@ -13,7 +13,7 @@ export interface ChildProcess {
   state: ServerState;
 }
 
-export const socketServers = new Map<string, ChildProcess>();
+export const socketServers: Map<string, ChildProcess> = new Map();
 export const chatRooms: Map<string, ChatRoomState> = new Map();
 export const ppsHistory: NumericList = new NumericList(
   ...Array.from({ length: 100 }).map(() => 0),

@@ -52,12 +52,14 @@ export interface ServerState {
   socketWrites: NumericList;
   timeouts: NumericList;
   messages: NumericList;
+  chatRooms: Record<string, number>;
 }
 export const defaultServerState = (): ServerState => ({
   clients: new NumericList(...Array.from({ length: 100 }).map(() => 0)),
   socketWrites: new NumericList(...Array.from({ length: 100 }).map(() => 0)),
   timeouts: new NumericList(...Array.from({ length: 100 }).map(() => 0)),
   messages: new NumericList(...Array.from({ length: 100 }).map(() => 0)),
+  chatRooms: {},
 });
 
 export const redistributeChannel = "wss-redistribute";
