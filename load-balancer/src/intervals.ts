@@ -1,5 +1,5 @@
 // import { terminalUi } from "../terminal-ui.ts";
-import { redisClient, runtimeState, serverBlacklist } from "./utils.ts";
+import { redisClient, serverBlacklist } from "./utils.ts";
 import {
   chatRoomMessagesPerSecondKey,
   chatRoomSocketWritesPerSecondKey,
@@ -12,7 +12,12 @@ import {
   serversHeartbeatKey,
   serversSocketWritesPerSecondKey,
 } from "@chat/shared";
-import { chatRooms, type ChatRoomState, socketServers } from "./state.ts";
+import {
+  chatRooms,
+  type ChatRoomState,
+  socketServers,
+  terminalUiRuntimeState,
+} from "./state.ts";
 
 const PPS_SURGE_THRESHOLD = 40;
 
@@ -40,7 +45,7 @@ const detectTimedOutServers = async () => {
     0,
     cutoff,
   );
-  runtimeState.timedOutServers = timedOutServers;
+  terminalUiRuntimeState.timedOutServers = timedOutServers;
 
   timedOutServers.forEach((serverId) => {
     if (!serverBlacklist.has(serverId)) {
@@ -56,7 +61,7 @@ const purgeBlacklistedServers = () => {
       serverBlacklist.delete(server);
       socketServers.get(server)?.process?.kill(0);
       socketServers.delete(server);
-      runtimeState.lastRemovedServer = server;
+      terminalUiRuntimeState.lastRemovedServer = server;
     }
   });
 };
@@ -116,15 +121,15 @@ export let provisionsThisSecond = 0;
 export const incrProvisionsThisSecond = () => provisionsThisSecond++;
 const updatePps = () => {
   pps = provisionsThisSecond;
-  runtimeState.pps = pps;
+  terminalUiRuntimeState.pps = pps;
   ppsHistory.shift();
   ppsHistory.push(pps);
   provisionsThisSecond = 0;
 };
 
 const syncTerminalUi = () => {
-  const clientsByServerId = new Map(runtimeState.serverLoads);
-  const mpsByServerId = new Map(runtimeState.serverMps);
+  const clientsByServerId = new Map(terminalUiRuntimeState.serverLoads);
+  const mpsByServerId = new Map(terminalUiRuntimeState.serverMps);
 
   // terminalUi.setSnapshot({
   //   blacklistedServers: [...serverBlacklist.entries()].map(

@@ -13,6 +13,25 @@ export interface ChildProcess {
   state: ServerState;
 }
 
+export const terminalUiRuntimeState = {
+  currentRequests: 0,
+  lastProvisionedServer: null as string | null,
+  lastRedistribution: null as {
+    amount: number;
+    serverId: string;
+    timestamp: string;
+  } | null,
+  lastRemovedServer: null as string | null,
+  optimalDistribution: 0,
+  provisionCount: 0,
+  pps: 0,
+  serverMps: [] as Array<[string, number]>,
+  serverLoads: [] as Array<[string, number]>,
+  timedOutServers: [] as string[],
+  totalClients: 0,
+  totalServers: 0,
+};
+
 export const socketServers = new Map<string, ChildProcess>();
 export const chatRooms: Map<string, ChatRoomState> = new Map();
 export let lastSpawnedServer = Date.now();

@@ -1,12 +1,13 @@
-import { runtimeState, spawnServer } from "../utils.ts";
+import { spawnServer } from "../utils.ts";
 import express from "express";
 import { incrProvisionsThisSecond } from "../intervals.ts";
 import { getLowestLoadServer, type Server } from "@chat/shared";
 import {
-  ChildProcess,
+  type ChildProcess,
   lastSpawnedServer,
   setLastSpawnedServer,
   socketServers,
+  terminalUiRuntimeState,
 } from "../state.ts";
 
 const MAX_SOCKET_SPIKE_LOAD = 75_000;
@@ -55,6 +56,6 @@ export const provisionServer = async (
     url: server.url,
   });
 
-  runtimeState.provisionCount++;
-  runtimeState.lastProvisionedServer = server.id;
+  terminalUiRuntimeState.provisionCount++;
+  terminalUiRuntimeState.lastProvisionedServer = server.id;
 };
