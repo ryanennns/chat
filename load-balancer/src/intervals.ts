@@ -136,20 +136,17 @@ export const updateChatRoomState = async () => {
 
   socketWrites.forEach(({ value: id, score }) => {
     const room = ensureChatRoomExists(id);
-    room.cumulativeSocketWrites.shift();
-    room.cumulativeSocketWrites.push(score);
+    room.cumulativeMessages.rotate(score)
   });
 
   messages.forEach(({ value: id, score }) => {
     const room = ensureChatRoomExists(id);
-    room.cumulativeMessages.shift();
-    room.cumulativeMessages.push(score);
+    room.clients.rotate(score);
   });
 
   clients.forEach(({ value: id, score }) => {
     const room = ensureChatRoomExists(id);
-    room.clients.shift();
-    room.clients.push(score);
+    room.clients.rotate(score);
   });
 };
 
