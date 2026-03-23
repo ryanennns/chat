@@ -1,9 +1,9 @@
 // import { terminalUi } from "../terminal-ui.ts";
 import {
-  childServerMap,
   redisClient,
   runtimeState,
   serverBlacklist,
+  socketServers,
 } from "./utils.ts";
 import {
   chatRoomMessagesPerSecondKey,
@@ -11,14 +11,13 @@ import {
   chatRoomTotalClientsKey,
   type HistoryKey,
   NumericList,
-  redisServerKeyFactory,
   removeServerFromRedis,
   serversClientCountKey,
   serversEventLoopTimeoutKey,
   serversHeartbeatKey,
   serversSocketWritesPerSecondKey,
 } from "@chat/shared";
-import { type ChatRoomState, chatRooms } from "./state.ts";
+import { chatRooms, type ChatRoomState } from "./state.ts";
 
 const PPS_SURGE_THRESHOLD = 40;
 
@@ -60,8 +59,8 @@ const purgeBlacklistedServers = () => {
     if (Date.now() - timeout > wssBlacklistRemovalTimeoutMs) {
       void removeServerFromRedis(server);
       serverBlacklist.delete(server);
-      childServerMap.get(server)?.process?.kill(0);
-      childServerMap.delete(server);
+      socketServers.get(server)?.process?.kill(0);
+      socketServers.delete(server);
       runtimeState.lastRemovedServer = server;
     }
   });
@@ -72,12 +71,12 @@ const updateServerStateHistoryArray = (
   key: HistoryKey,
   value: number,
 ) => {
-  if (!childServerMap.has(id)) {
+  if (!socketServers.has(id)) {
     return;
   }
 
-  childServerMap.get(id)?.state[key]?.shift();
-  childServerMap.get(id)?.state[key]?.push(value);
+  socketServers.get(id)?.state[key]?.shift();
+  socketServers.get(id)?.state[key]?.push(value);
 };
 
 export const healthChecks = async () => {

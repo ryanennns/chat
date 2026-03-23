@@ -50,7 +50,7 @@ export const shutdown = async () => {
     // terminalUi.destroy();
     await redisClient.quit();
     await subscriptionClient.quit();
-    for (let [id, childServerMapElement] of childServerMap) {
+    for (let [id, childServerMapElement] of socketServers) {
       await removeServerFromRedis(id);
       childServerMapElement.process.kill(1);
     }
@@ -75,7 +75,7 @@ export const spawnServer = async () => {
   const output = await websocketServerFactory(v4());
 
   if (output) {
-    childServerMap.set(output.server.id, output);
+    socketServers.set(output.server.id, output);
 
     return output.server;
   }
@@ -93,7 +93,7 @@ export interface ChildProcess {
   state: ServerState;
 }
 
-export const childServerMap = new Map<string, ChildProcess>();
+export const socketServers = new Map<string, ChildProcess>();
 export const websocketServerFactory = async (
   id: string,
 ): Promise<ChildProcess | undefined> => {

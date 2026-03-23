@@ -1,5 +1,5 @@
 import type { Request, Response } from "express";
-import { childServerMap, redisClient } from "../utils.ts";
+import { socketServers, redisClient } from "../utils.ts";
 import { serversHeartbeatKey } from "@chat/shared";
 import { chatRooms } from "../state.ts";
 
@@ -13,7 +13,7 @@ export const redisStats = async (_req: Request, res: Response) => {
   );
   const heartbeatMap = new Map(heartbeats.map((e) => [e.value, e.score]));
 
-  const servers = [...childServerMap.entries()].map(([id, child]) => {
+  const servers = [...socketServers.entries()].map(([id, child]) => {
     const { state, server } = child;
     const last = state.clients.length - 1;
     return {

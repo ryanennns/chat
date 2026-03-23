@@ -1,12 +1,12 @@
 import { app } from "./src/app.ts";
 // import { terminalUi } from "./terminal-ui.ts";
-import { childServerMap, shutdown, spawnServer } from "./src/utils.ts";
+import { socketServers, shutdown, spawnServer } from "./src/utils.ts";
 import { startIntervals } from "./src/intervals.ts";
 
 const port = 3000;
 // terminalUi.setRuntimeInfo({ port, serviceName: "load-balancer" });
 
-if (childServerMap.size < 1) {
+if (socketServers.size < 1) {
   console.log("spawning init");
   void spawnServer();
 }

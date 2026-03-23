@@ -1,6 +1,6 @@
 import {
   type ChildProcess,
-  childServerMap,
+  socketServers,
   runtimeState,
   spawnServer,
 } from "../utils.ts";
@@ -15,7 +15,7 @@ const serverAtMaxCapacity = (server: ChildProcess): boolean => {
 };
 const shouldSpawnServer = () => Date.now() - lastSpawnedServer > 10_000;
 export const getBestCandidateServer = async (): Promise<Server | undefined> => {
-  const servers = [...childServerMap.values()];
+  const servers = [...socketServers.values()];
 
   let candidate: ChildProcess | undefined = undefined;
   servers.forEach((server) => {
