@@ -20,7 +20,6 @@ import {
   setPps,
   type ChatRoomState,
   socketServers,
-  terminalUiRuntimeState,
 } from "./state.ts";
 
 const wssServerTimeoutMs: number = Number(
@@ -38,7 +37,6 @@ const detectTimedOutServers = async () => {
     0,
     cutoff,
   );
-  terminalUiRuntimeState.timedOutServers = timedOutServers;
 
   timedOutServers.forEach((serverId) => {
     if (!serverBlacklist.has(serverId)) {
@@ -54,7 +52,6 @@ const purgeBlacklistedServers = () => {
       serverBlacklist.delete(server);
       socketServers.get(server)?.process?.kill(0);
       socketServers.delete(server);
-      terminalUiRuntimeState.lastRemovedServer = server;
     }
   });
 };
