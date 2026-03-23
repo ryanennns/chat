@@ -20,7 +20,7 @@ interface ServerMetrics {
 interface ChatRoomMetrics {
   id: string;
   clients: number;
-  cumulativeMessages: number;
+  messagesPerSecond: number;
   socketWritesPerSecond: number;
 }
 
@@ -224,6 +224,7 @@ export function Monitor() {
       const res = await fetch("/api/redis-stats");
       if (!res.ok) throw new Error(`${res.status}`);
       const data: RedisStats = await res.json();
+      console.log(data)
       setStats(data);
       setStatus("ok");
       setLastUpdated(new Date().toLocaleTimeString("en-US", { hour12: false }));
@@ -311,7 +312,7 @@ export function Monitor() {
                 <div key={room.id} className="room-row">
                   <span className="room-name">{room.id}</span>
                   <span className="room-clients">c:{room.clients}</span>
-                  <span className="room-msgs">m:{room.cumulativeMessages}</span>
+                  <span className="room-msgs">m:{room.messagesPerSecond}</span>
                   <span className="room-swps">
                     s:{room.socketWritesPerSecond}
                   </span>

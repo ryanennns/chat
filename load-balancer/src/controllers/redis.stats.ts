@@ -46,10 +46,11 @@ export const redisStats = async (_req: Request, res: Response) => {
 
   const chatRoomList = [...chatRooms.entries()].map(([id, room]) => {
     const last = room.clients.length - 1;
+    const deltas = room.cumulativeMessages.deltas();
     return {
       id,
       clients: room.clients[last] ?? 0,
-      cumulativeMessages: room.cumulativeMessages[last] ?? 0,
+      messagesPerSecond: deltas[deltas.length - 1],
       socketWritesPerSecond: room.socketWritesPerSecond[last] ?? 0,
       history: {
         clients: room.clients,
@@ -59,7 +60,6 @@ export const redisStats = async (_req: Request, res: Response) => {
     };
   });
 
-  console.log(chatRoomList);
   res.json({
     ts: now,
     servers,
