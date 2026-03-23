@@ -1,13 +1,13 @@
-import {
-  type ChildProcess,
-  socketServers,
-  runtimeState,
-  spawnServer,
-} from "../utils.ts";
+import { runtimeState, spawnServer } from "../utils.ts";
 import express from "express";
 import { incrProvisionsThisSecond } from "../intervals.ts";
 import { getLowestLoadServer, type Server } from "@chat/shared";
-import { lastSpawnedServer, setLastSpawnedServer } from "../state.ts";
+import {
+  ChildProcess,
+  lastSpawnedServer,
+  setLastSpawnedServer,
+  socketServers,
+} from "../state.ts";
 
 const MAX_SOCKET_SPIKE_LOAD = 75_000;
 const serverAtMaxCapacity = (server: ChildProcess): boolean => {

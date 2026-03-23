@@ -1,7 +1,8 @@
 import express from "express";
 import { v4 } from "uuid";
-import { socketServers, websocketServerFactory } from "../utils.ts";
+import { websocketServerFactory } from "../utils.ts";
 import { debugLog } from "@chat/shared";
+import { socketServers } from "../state.ts";
 
 export const createServer = async (
   req: express.Request,

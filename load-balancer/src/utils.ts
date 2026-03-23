@@ -9,10 +9,9 @@ import {
   defaultServerState,
   redisServerKeyFactory,
   removeServerFromRedis,
-  type Server,
-  type ServerState,
 } from "@chat/shared";
 import { v4 } from "uuid";
+import { ChildProcess, socketServers } from "./state.ts";
 
 export const redisClient = createClient();
 await redisClient.connect();
@@ -87,13 +86,6 @@ export const spawnServer = async () => {
   }
 };
 
-export interface ChildProcess {
-  server: Server;
-  process: ChildProcessWithoutNullStreams;
-  state: ServerState;
-}
-
-export const socketServers = new Map<string, ChildProcess>();
 export const websocketServerFactory = async (
   id: string,
 ): Promise<ChildProcess | undefined> => {

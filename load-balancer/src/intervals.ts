@@ -1,10 +1,5 @@
 // import { terminalUi } from "../terminal-ui.ts";
-import {
-  redisClient,
-  runtimeState,
-  serverBlacklist,
-  socketServers,
-} from "./utils.ts";
+import { redisClient, runtimeState, serverBlacklist } from "./utils.ts";
 import {
   chatRoomMessagesPerSecondKey,
   chatRoomSocketWritesPerSecondKey,
@@ -17,7 +12,7 @@ import {
   serversHeartbeatKey,
   serversSocketWritesPerSecondKey,
 } from "@chat/shared";
-import { chatRooms, type ChatRoomState } from "./state.ts";
+import { chatRooms, type ChatRoomState, socketServers } from "./state.ts";
 
 const PPS_SURGE_THRESHOLD = 40;
 

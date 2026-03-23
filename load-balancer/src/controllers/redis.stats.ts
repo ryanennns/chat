@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
-import { socketServers, redisClient } from "../utils.ts";
+import { redisClient } from "../utils.ts";
 import { serversHeartbeatKey } from "@chat/shared";
-import { chatRooms } from "../state.ts";
+import { chatRooms, socketServers } from "../state.ts";
 
 export const redisStats = async (_req: Request, res: Response) => {
   const now = Date.now();

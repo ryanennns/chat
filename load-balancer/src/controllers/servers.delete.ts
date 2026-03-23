@@ -1,6 +1,6 @@
-import { socketServers } from "../utils.ts";
 import express from "express";
 import { debugLog } from "@chat/shared";
+import { socketServers } from "../state.ts";
 
 export const deleteServer = (req: express.Request, res: express.Response) => {
   const array = Array.from(socketServers);
