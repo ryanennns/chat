@@ -156,7 +156,7 @@ export const startIntervals = () => {
       JSON.stringify(
         {
           servers: [...socketServers.values()].map((s) => ({
-            clients: s.state.clients.lastN(10).deltas().trendScore(),
+            clients: s.state.clients.lastN(10).trendScore(),
             socketWrites: s.state.socketWrites.lastN(10).deltas().trendScore(),
             timeouts: s.state.timeouts.lastN(10).deltas().trendScore(),
             chatRooms: s.state.chatRooms,
