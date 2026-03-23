@@ -36,7 +36,9 @@ export class NumericList extends Array<number> {
   }
 
   deltas() {
-    return this.fromArray(this.map((v, i) => v - (this[i - 1] ?? 0)));
+    const deltas = this.fromArray(this.map((v, i) => v - (this[i - 1] ?? 0)));
+    deltas.shift();
+    return deltas;
   }
 
   fromArray(a: Array<number>) {
@@ -55,14 +57,12 @@ export interface ServerState {
   clients: NumericList;
   socketWrites: NumericList;
   timeouts: NumericList;
-  messages: NumericList;
   chatRooms: Record<string, number>;
 }
 export const defaultServerState = (): ServerState => ({
   clients: new NumericList(...Array.from({ length: 100 }).map(() => 0)),
   socketWrites: new NumericList(...Array.from({ length: 100 }).map(() => 0)),
   timeouts: new NumericList(...Array.from({ length: 100 }).map(() => 0)),
-  messages: new NumericList(...Array.from({ length: 100 }).map(() => 0)),
   chatRooms: {},
 });
 

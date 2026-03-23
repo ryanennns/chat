@@ -158,7 +158,6 @@ export const startIntervals = () => {
           clients: s.state.clients.lastN(10),
           socketWrites: s.state.socketWrites.lastN(10),
           timeouts: s.state.timeouts.lastN(10),
-          messages: s.state.messages.lastN(10),
           chatRooms: s.state.chatRooms,
         })),
         chatRooms: [...chatRooms.values()].map((chatRoom) => ({
