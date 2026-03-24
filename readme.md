@@ -1,5 +1,5 @@
 # chat
 
-simple, scalable chat client/server/loadbalancer using redis and nodejs
+simple, scalable chat server/loadbalancer using redis and nodejs
 
 ![stuff](./diagram.png)
