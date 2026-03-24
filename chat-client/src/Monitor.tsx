@@ -166,6 +166,70 @@ function Graph({
   );
 }
 
+function Summary({ stats }: { stats: RedisStats }) {
+  const totalClients = stats.socketServers.reduce(
+    (sum, s) => sum + (s.state.clients.last() ?? 0),
+    0,
+  );
+  const totalSwps = stats.socketServers.reduce(
+    (sum, s) => sum + (s.state.socketWrites.deltas().last() ?? 0),
+    0,
+  );
+  const totalMsgs = Object.values(stats.chatRooms).reduce(
+    (sum, r) => sum + (r.cumulativeMessages.deltas().last() ?? 0),
+    0,
+  );
+  const avgEventLoop =
+    stats.socketServers.length > 0
+      ? stats.socketServers.reduce(
+          (sum, s) => sum + (s.state.timeouts.last() ?? 0),
+          0,
+        ) / stats.socketServers.length
+      : 0;
+
+  const Stat = ({
+    label,
+    value,
+    color,
+  }: {
+    label: string;
+    value: string;
+    color: string;
+  }) => (
+    <div className="summary-stat">
+      <span className="summary-stat-value" style={{ color }}>
+        {value}
+      </span>
+      <span className="summary-stat-label">{label}</span>
+    </div>
+  );
+
+  return (
+    <div className="monitor-summary">
+      <Stat
+        label="servers"
+        value={String(stats.socketServers.length)}
+        color="#8b949e"
+      />
+      <Stat
+        label="rooms"
+        value={String(Object.keys(stats.chatRooms).length)}
+        color="#8b949e"
+      />
+      <div className="summary-divider" />
+      <Stat label="clients" value={String(totalClients)} color="#7d9fc5" />
+      <Stat label="swps" value={String(totalSwps)} color="#3fb950" />
+      <Stat label="msg/s" value={String(totalMsgs)} color="#bc8cff" />
+      <div className="summary-divider" />
+      <Stat
+        label="event loop"
+        value={avgEventLoop.toFixed(2)}
+        color="#d29922"
+      />
+    </div>
+  );
+}
+
 function ServerCard({ s }: { s: SocketServer }) {
   const swpsDeltas = s.state.socketWrites.deltas();
   return (
@@ -255,6 +319,8 @@ export function Monitor() {
           polls {pollCount} · {lastUpdated}
         </span>
       </div>
+
+      {stats && <Summary stats={stats} />}
 
       {stats && (
         <div className="monitor-body">

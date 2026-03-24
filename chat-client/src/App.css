@@ -274,6 +274,45 @@
   color: #ff7b72;
 }
 
+/* monitor summary */
+.monitor-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: #181818;
+  border: 1px solid #2a2a2a;
+  padding: 0.5rem 0.85rem;
+  flex-wrap: wrap;
+}
+
+.summary-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.1rem 0.75rem;
+  gap: 0.1rem;
+}
+
+.summary-stat-value {
+  font-size: 1.15rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.summary-stat-label {
+  font-size: 0.65rem;
+  color: #555;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.summary-divider {
+  width: 1px;
+  height: 2rem;
+  background: #2a2a2a;
+  margin: 0 0.25rem;
+}
+
 /* monitor sections */
 .monitor-section {
   display: grid;
