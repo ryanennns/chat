@@ -174,7 +174,7 @@ const resetAddressingServers = () => {
   });
 };
 
-const SPAWN_NEW_SERVER = 25_000;
+const SPAWN_NEW_SERVER = 40_000;
 const otherServersDoNotHaveCapacity = () => {
   let hasCapacity = false;
   for (let [_, wss] of socketServers) {
@@ -200,23 +200,20 @@ export const decideWhatToDoNext = async () => {
 
     if (
       aboveSocketWriteBreakpointInLastTenSeconds &&
-      otherServersDoNotHaveCapacity()
+      otherServersDoNotHaveCapacity() &&
+      Date.now() - (addressingServer[serverId] ?? 0) > ADDRESSING_SERVER_TIMEOUT
     ) {
-      if (
-        Date.now() - (addressingServer[serverId] ?? 0) >
-        ADDRESSING_SERVER_TIMEOUT
-      ) {
-        addressingServer[serverId] = Date.now();
-        !spawned ? void spawnServer() : null;
-        spawned = true;
-        debugLog("met criteria for new server spawn");
-      }
+      addressingServer[serverId] = Date.now();
+      !spawned ? void spawnServer() : null;
+      spawned = true;
+      debugLog("met criteria for new server spawn");
     }
 
-    const shouldRedistribute =
-      socketWriteDeltas.lastN(5).filter((d) => d >= SPAWN_NEW_SERVER * 1.33).length >
-      1;
-    if (shouldRedistribute) {
+    // redistribute
+    if (
+      socketWriteDeltas.lastN(5).filter((d) => d >= SPAWN_NEW_SERVER * 1.33)
+        .length > 1
+    ) {
       const serverChatRoomLoads: Record<string, number> = {};
       Object.keys(wss.state.chatRooms).forEach((chatRoomId) => {
         const chatRoom = chatRooms.get(chatRoomId);
@@ -243,11 +240,14 @@ export const decideWhatToDoNext = async () => {
         throw new Error("how did you do this");
       }
 
+      console.log(
+        `redistributing ${serverId} by ${wss.state.clients.last() * 0.04}`,
+      );
       void redisClient.publish(
         redisRedistributeChannelFactory(serverId),
         JSON.stringify({
           chatRoom: keyOfHighestLoadChatRoomOnServer,
-          n: wss.state.clients.last() * 0.15,
+          n: wss.state.clients.last() * 0.04,
         }),
       );
     }
