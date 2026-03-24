@@ -166,7 +166,13 @@ function Graph({
   );
 }
 
-function Summary({ stats }: { stats: RedisStats }) {
+function Summary({
+  stats,
+  clientsHistory,
+}: {
+  stats: RedisStats;
+  clientsHistory: NumericList;
+}) {
   const totalClients = stats.socketServers.reduce(
     (sum, s) => sum + (s.state.clients.last() ?? 0),
     0,
@@ -226,6 +232,16 @@ function Summary({ stats }: { stats: RedisStats }) {
         value={avgEventLoop.toFixed(2)}
         color="#d29922"
       />
+      <div className="summary-divider" />
+      <div className="summary-chart">
+        <span className="summary-stat-label">clients over time</span>
+        <Sparkline
+          data={clientsHistory}
+          color="#7d9fc5"
+          width={200}
+          height={36}
+        />
+      </div>
     </div>
   );
 }
@@ -236,7 +252,9 @@ function ServerCard({ s, dead }: { s: SocketServer; dead?: boolean }) {
     <div className={`server-card${dead ? " server-card--dead" : ""}`}>
       <div className="server-card-header">
         <span className="server-card-id">{s.server.id.slice(0, 8)}</span>
-        <span className="server-card-url">{dead ? "dead" : (s.server.url ?? "—")}</span>
+        <span className="server-card-url">
+          {dead ? "dead" : (s.server.url ?? "—")}
+        </span>
       </div>
       <div className="server-graphs">
         <Graph label="clients" data={s.state.clients} color="#7d9fc5" />
@@ -279,7 +297,10 @@ export function Monitor() {
   const [lastUpdated, setLastUpdated] = useState("-");
   const [pollCount, setPollCount] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const knownServersRef = useRef<Map<string, { s: SocketServer; dead: boolean }>>(new Map());
+  const knownServersRef = useRef<
+    Map<string, { s: SocketServer; dead: boolean }>
+  >(new Map());
+  const clientsHistoryRef = useRef<number[]>([]);
 
   const poll = async () => {
     try {
@@ -295,6 +316,14 @@ export function Monitor() {
       for (const s of trimmed.socketServers) {
         knownServersRef.current.set(s.server.id, { s, dead: false });
       }
+
+      const totalClients = trimmed.socketServers.reduce(
+        (sum, s) => sum + (s.state.clients.last() ?? 0),
+        0,
+      );
+      clientsHistoryRef.current.push(totalClients);
+      if (clientsHistoryRef.current.length > 300)
+        clientsHistoryRef.current.shift();
 
       setStats(trimmed);
       setStatus("ok");
@@ -331,7 +360,12 @@ export function Monitor() {
         </span>
       </div>
 
-      {stats && <Summary stats={stats} />}
+      {stats && (
+        <Summary
+          stats={stats}
+          clientsHistory={new NumericList(...clientsHistoryRef.current)}
+        />
+      )}
 
       {stats && (
         <div className="monitor-body">

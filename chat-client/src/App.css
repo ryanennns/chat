@@ -313,6 +313,16 @@
   margin: 0 0.25rem;
 }
 
+.summary-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  flex: 1;
+  min-width: 120px;
+  padding: 0.1rem 0.5rem;
+  justify-content: center;
+}
+
 /* monitor sections */
 .monitor-section {
   display: grid;
