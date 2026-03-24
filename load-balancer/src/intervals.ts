@@ -1,4 +1,4 @@
-import { redisClient, serverBlacklist, spawnServer } from "./utils.ts";
+import { redisClient, spawnServer } from "./utils.ts";
 import {
   chatRoomCumulativeMessages,
   chatRoomCumulativeSocketWrites,
@@ -20,6 +20,7 @@ import {
   ppsHistory,
   provisionsThisSecond,
   resetProvisionsThisSecond,
+  serverBlacklist,
   setPps,
   socketServers,
 } from "./state.ts";

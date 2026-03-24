@@ -13,6 +13,7 @@ export interface ChildProcess {
   state: ServerState;
 }
 
+export const serverBlacklist: Map<string, number> = new Map();
 export const socketServers: Map<string, ChildProcess> = new Map();
 export const chatRooms: Map<string, ChatRoomState> = new Map();
 export const ppsHistory: NumericList = new NumericList(

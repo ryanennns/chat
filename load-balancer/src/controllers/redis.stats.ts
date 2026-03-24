@@ -1,5 +1,5 @@
 import type { Request, Response } from "express";
-import { chatRooms, socketServers } from "../state.ts";
+import { chatRooms, serverBlacklist, socketServers } from "../state.ts";
 
 export const redisStats = (_req: Request, res: Response) => {
   res.json({
@@ -8,5 +8,6 @@ export const redisStats = (_req: Request, res: Response) => {
       state: ss.state,
     })),
     chatRooms: Object.fromEntries(chatRooms),
+    blackList: Object.fromEntries(serverBlacklist),
   });
 };

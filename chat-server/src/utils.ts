@@ -1,9 +1,4 @@
-import {
-  getLowestLoadServer,
-  RedistributionPayload,
-  Server,
-  WebSocketMessage,
-} from "@chat/shared";
+import { RedistributionPayload, Server, WebSocketMessage } from "@chat/shared";
 import WebSocket from "ws";
 
 export let redistributeBy = 0;
@@ -12,9 +7,6 @@ export const setRedistributeBy = (number: number) => (redistributeBy = number);
 export const MESSAGE_BATCH_SIZE = 10;
 
 let lowestLoadServer: Server | undefined = undefined;
-setInterval(async () => {
-  lowestLoadServer = await getLowestLoadServer();
-}, 1000);
 
 const redistributeMessageFactory =
   (): WebSocketMessage<RedistributionPayload> => {
@@ -27,7 +19,6 @@ const redistributeMessageFactory =
     };
 
     if (lowestLoadServer) {
-      message.payload.redirect = lowestLoadServer.url;
     }
 
     return message;

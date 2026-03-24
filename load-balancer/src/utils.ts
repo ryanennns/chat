@@ -23,8 +23,6 @@ void subscriptionClient.subscribe("message", (message) => {
   debugLog(`${payload.serverId} - ${payload.message}`);
 });
 
-export const serverBlacklist = new Map<string, number>();
-
 export const shutdown = async () => {
   try {
     // terminalUi.destroy();
