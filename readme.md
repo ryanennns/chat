@@ -13,3 +13,5 @@ f(r,u,m)=\frac{u^2}{mr}
 $$
 
 ![diagram](./diagram.png)
+
+![functions](./functions.png)
