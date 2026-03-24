@@ -15,11 +15,13 @@ interface ChatRoom {
 interface RedisStats {
   socketServers: SocketServer[];
   chatRooms: Record<string, ChatRoom>;
+  blackList: Record<string, number>;
 }
 
 function trimStats(raw: {
   socketServers: { server: Server; state: Record<string, unknown> }[];
   chatRooms: Record<string, Record<string, unknown>>;
+  blackList: Record<string, number>;
 }): RedisStats {
   return {
     socketServers: raw.socketServers.map((s) => ({
@@ -47,6 +49,7 @@ function trimStats(raw: {
         },
       ]),
     ),
+    blackList: raw.blackList ?? {},
   };
 }
 
@@ -290,6 +293,34 @@ function ChatRoomCard({ id, room }: { id: string; room: ChatRoom }) {
   );
 }
 
+function BlacklistSection({
+  blackList,
+}: {
+  blackList: Record<string, number>;
+}) {
+  const entries = Object.entries(blackList);
+  const now = Date.now();
+  return (
+    <div className="monitor-section">
+      <span className="monitor-section-title">blacklist</span>
+      {entries.length === 0 ? (
+        <p className="monitor-empty">no blacklisted servers</p>
+      ) : (
+        <div className="blacklist-table">
+          {entries.map(([id, since]) => (
+            <div key={id} className="blacklist-row">
+              <span className="blacklist-id">{id.slice(0, 8)}</span>
+              <span className="blacklist-age">
+                {Math.floor((now - since) / 1000)}s ago
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function Monitor() {
   const [stats, setStats] = useState<RedisStats | null>(null);
   const [status, setStatus] = useState<"ok" | "error" | "loading">("loading");
@@ -390,6 +421,7 @@ export function Monitor() {
               ))}
             </div>
           </div>
+          <BlacklistSection blackList={stats.blackList} />
         </div>
       )}
 
