@@ -1,11 +1,9 @@
 import { app } from "./src/app.ts";
-// import { terminalUi } from "./terminal-ui.ts";
 import { shutdown, spawnServer } from "./src/utils.ts";
 import { startIntervals } from "./src/intervals.ts";
 import { socketServers } from "./src/state.ts";
 
 const port = 3000;
-// terminalUi.setRuntimeInfo({ port, serviceName: "load-balancer" });
 
 if (socketServers.size < 1) {
   console.log("spawning init");
