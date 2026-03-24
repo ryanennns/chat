@@ -246,15 +246,14 @@ function Summary({
   );
 }
 
-function ServerCard({ s, dead }: { s: SocketServer; dead?: boolean }) {
+function ServerCard({ s, degraded }: { s: SocketServer; degraded?: boolean }) {
   const swpsDeltas = s.state.socketWrites.deltas();
   return (
-    <div className={`server-card${dead ? " server-card--dead" : ""}`}>
+    <div className={`server-card${degraded ? " server-card--degraded" : ""}`}>
       <div className="server-card-header">
         <span className="server-card-id">{s.server.id.slice(0, 8)}</span>
-        <span className="server-card-url">
-          {dead ? "dead" : (s.server.url ?? "—")}
-        </span>
+        <span className="server-card-url">{s.server.url ?? "—"}</span>
+        {degraded && <span className="server-card-degraded">degraded</span>}
       </div>
       <div className="server-graphs">
         <Graph label="clients" data={s.state.clients} color="#7d9fc5" />
@@ -298,7 +297,7 @@ export function Monitor() {
   const [pollCount, setPollCount] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const knownServersRef = useRef<
-    Map<string, { s: SocketServer; dead: boolean }>
+    Map<string, { s: SocketServer; degraded: boolean }>
   >(new Map());
   const clientsHistoryRef = useRef<number[]>([]);
 
@@ -311,10 +310,10 @@ export function Monitor() {
 
       const liveIds = new Set(trimmed.socketServers.map((s) => s.server.id));
       for (const [id, entry] of knownServersRef.current) {
-        entry.dead = !liveIds.has(id);
+        entry.degraded = !liveIds.has(id);
       }
       for (const s of trimmed.socketServers) {
-        knownServersRef.current.set(s.server.id, { s, dead: false });
+        knownServersRef.current.set(s.server.id, { s, degraded: false });
       }
 
       const totalClients = trimmed.socketServers.reduce(
@@ -375,8 +374,8 @@ export function Monitor() {
               {knownServersRef.current.size === 0 && (
                 <p className="monitor-empty">no servers</p>
               )}
-              {[...knownServersRef.current.values()].map(({ s, dead }) => (
-                <ServerCard key={s.server.id} s={s} dead={dead} />
+              {[...knownServersRef.current.values()].map(({ s, degraded }) => (
+                <ServerCard key={s.server.id} s={s} degraded={degraded} />
               ))}
             </div>
           </div>
