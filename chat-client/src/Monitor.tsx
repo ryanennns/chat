@@ -230,13 +230,13 @@ function Summary({ stats }: { stats: RedisStats }) {
   );
 }
 
-function ServerCard({ s }: { s: SocketServer }) {
+function ServerCard({ s, dead }: { s: SocketServer; dead?: boolean }) {
   const swpsDeltas = s.state.socketWrites.deltas();
   return (
-    <div className="server-card">
+    <div className={`server-card${dead ? " server-card--dead" : ""}`}>
       <div className="server-card-header">
         <span className="server-card-id">{s.server.id.slice(0, 8)}</span>
-        <span className="server-card-url">{s.server.url ?? "—"}</span>
+        <span className="server-card-url">{dead ? "dead" : (s.server.url ?? "—")}</span>
       </div>
       <div className="server-graphs">
         <Graph label="clients" data={s.state.clients} color="#7d9fc5" />
@@ -279,13 +279,24 @@ export function Monitor() {
   const [lastUpdated, setLastUpdated] = useState("-");
   const [pollCount, setPollCount] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const knownServersRef = useRef<Map<string, { s: SocketServer; dead: boolean }>>(new Map());
 
   const poll = async () => {
     try {
       const res = await fetch("/api/redis-stats");
       if (!res.ok) throw new Error(`${res.status}`);
       const data = await res.json();
-      setStats(trimStats(data));
+      const trimmed = trimStats(data);
+
+      const liveIds = new Set(trimmed.socketServers.map((s) => s.server.id));
+      for (const [id, entry] of knownServersRef.current) {
+        entry.dead = !liveIds.has(id);
+      }
+      for (const s of trimmed.socketServers) {
+        knownServersRef.current.set(s.server.id, { s, dead: false });
+      }
+
+      setStats(trimmed);
       setStatus("ok");
       setLastUpdated(new Date().toLocaleTimeString("en-US", { hour12: false }));
       setPollCount((c) => c + 1);
@@ -327,11 +338,11 @@ export function Monitor() {
           <div className="monitor-section">
             <span className="monitor-section-title">servers</span>
             <div className="server-cards">
-              {stats.socketServers.length === 0 && (
+              {knownServersRef.current.size === 0 && (
                 <p className="monitor-empty">no servers</p>
               )}
-              {stats.socketServers.map((s) => (
-                <ServerCard key={s.server.id} s={s} />
+              {[...knownServersRef.current.values()].map(({ s, dead }) => (
+                <ServerCard key={s.server.id} s={s} dead={dead} />
               ))}
             </div>
           </div>

@@ -352,6 +352,12 @@
   border-color: #3a1010;
 }
 
+.server-card.server-card--dead {
+  background: #1e0a0a;
+  border-color: #5a1a1a;
+  opacity: 0.75;
+}
+
 .server-card-header {
   display: flex;
   align-items: baseline;
