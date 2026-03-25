@@ -68,6 +68,14 @@ export const updateServerState = async () => {
       socketServers.get(cp.server.id)!.state.chatRooms[key.split("chat:")[1]] =
         Number(value);
     }
+
+    socketServers.get(cp.server.id)!.state.memory = {
+      rss: Number(hashFields.rss ?? 0),
+      heapTotal: Number(hashFields.heapTotal ?? 0),
+      heapUsed: Number(hashFields.heapUsed ?? 0),
+      external: Number(hashFields.external ?? 0),
+      arrayBuffers: Number(hashFields.arrayBuffers ?? 0),
+    };
   }
 
   updatePps();
