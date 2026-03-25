@@ -163,6 +163,32 @@ const updateMetrics = () => {
     score: lastFiveTimeoutValues[0],
     value: serverId,
   });
+  const memoryUsage = process.memoryUsage();
+  void redisClient.hSet(
+    redisServerKeyFactory(serverId),
+    "rss",
+    memoryUsage.rss,
+  );
+  void redisClient.hSet(
+    redisServerKeyFactory(serverId),
+    "heapTotal",
+    memoryUsage.heapTotal,
+  );
+  void redisClient.hSet(
+    redisServerKeyFactory(serverId),
+    "heapUsed",
+    memoryUsage.heapUsed,
+  );
+  void redisClient.hSet(
+    redisServerKeyFactory(serverId),
+    "external",
+    memoryUsage.external,
+  );
+  void redisClient.hSet(
+    redisServerKeyFactory(serverId),
+    "arrayBuffers",
+    memoryUsage.arrayBuffers,
+  );
 };
 
 const lastFiveTimeoutValues = new Array(5).fill(0);

@@ -45,7 +45,7 @@ export class NumericList extends Array<number> {
     return new NumericList(...a);
   }
 
-  trendScore(k = 5) {
+  trendScore(k = 3) {
     if (this.length < 2) {
       return 0;
     }
