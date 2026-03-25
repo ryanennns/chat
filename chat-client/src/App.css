@@ -429,6 +429,24 @@
   flex-wrap: wrap;
 }
 
+.server-memory {
+  display: flex;
+  gap: 1.25rem;
+  padding-top: 0.35rem;
+  border-top: 1px solid #222;
+}
+
+.server-memory-item {
+  font-size: 0.68rem;
+  color: #555;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+.server-memory-item span {
+  font-variant-numeric: tabular-nums;
+}
+
 .server-rooms {
   margin-top: 0.5rem;
   border-top: 1px solid #2a2a2a;

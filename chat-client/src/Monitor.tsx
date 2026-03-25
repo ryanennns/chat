@@ -1,5 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { NumericList, type Server, type ServerState } from "@chat/shared";
+import {
+  NumericList,
+  type MemoryUsage,
+  type Server,
+  type ServerState,
+} from "@chat/shared";
 
 interface SocketServer {
   server: Server;
@@ -33,6 +38,13 @@ function trimStats(raw: {
         ).lastN(100),
         timeouts: new NumericList(...(s.state.timeouts as number[])).lastN(100),
         chatRooms: s.state.chatRooms as Record<string, number>,
+        memory: (s.state.memory ?? {
+          rss: 0,
+          heapTotal: 0,
+          heapUsed: 0,
+          external: 0,
+          arrayBuffers: 0,
+        }) as MemoryUsage,
       },
     })),
     chatRooms: Object.fromEntries(
@@ -249,8 +261,11 @@ function Summary({
   );
 }
 
+const mb = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(1)}mb`;
+
 function ServerCard({ s, degraded }: { s: SocketServer; degraded?: boolean }) {
   const swpsDeltas = s.state.socketWrites.deltas();
+  const mem = s.state.memory;
   return (
     <div className={`server-card${degraded ? " server-card--degraded" : ""}`}>
       <div className="server-card-header">
@@ -268,6 +283,18 @@ function ServerCard({ s, degraded }: { s: SocketServer; degraded?: boolean }) {
           trends={false}
           fmt={(v) => v.toFixed(2)}
         />
+      </div>
+      <div className="server-memory">
+        <span className="server-memory-item">
+          heap <span style={{ color: "#bc8cff" }}>{mb(mem.heapUsed)}</span>
+          <span style={{ color: "#8b949e" }}>/{mb(mem.heapTotal)}</span>
+        </span>
+        <span className="server-memory-item">
+          rss <span style={{ color: "#d29922" }}>{mb(mem.rss)}</span>
+        </span>
+        <span className="server-memory-item">
+          ext <span style={{ color: "#8b949e" }}>{mb(mem.external)}</span>
+        </span>
       </div>
     </div>
   );
