@@ -4,6 +4,8 @@ import { WebSocketServer } from "ws";
 import {
   addServerToRedis,
   ChatPayload,
+  chatRoomCumulativeMessages,
+  chatRoomCumulativeSocketWrites,
   chatRoomTotalClientsKey,
   debugLog,
   redisChatCountKeyFactory,
@@ -12,21 +14,13 @@ import {
   RegistrationPayload,
   removeServerFromRedis,
   serversClientCountKey,
+  serversCumulativeSocketWritesKey,
   serversEventLoopTimeoutKey,
   serversHeartbeatKey,
-  serversCumulativeSocketWritesKey,
   type WebSocketMessage,
-  chatRoomCumulativeMessages,
-  chatRoomCumulativeSocketWrites,
 } from "@chat/shared";
+import { ClientSocket, flushRoom, redistributeListener } from "./src/utils.js";
 import {
-  ClientSocket,
-  flushRoom,
-  redistributeListener,
-  Room,
-} from "./src/utils.js";
-import {
-  chatRoomCount,
   clientCount,
   decrementChatCount,
   decrementClientCount,
@@ -37,6 +31,8 @@ import {
 
 const redisClient = createClient();
 await redisClient.connect();
+const subscriber = createClient();
+await subscriber.connect();
 
 const removeSelfFromRedis = async () => {
   void removeServerFromRedis(serverId);
@@ -71,6 +67,10 @@ const websocketServerFactory = (port: number): Promise<WebsocketServerInfo> => {
   });
 };
 let { wss, port, serverId } = await websocketServerFactory(8080);
+await subscriber.subscribe(
+    redisRedistributeChannelFactory(serverId),
+    redistributeListener,
+);
 const url = `ws://localhost:${port}`;
 debugLog(`started ${serverId} on port ${port}`);
 await redisClient.publish(redisServerKeyFactory(serverId), url);
@@ -136,16 +136,8 @@ wss.on("connection", async (socket) => {
   incrementClientCount();
 });
 
-const subscriber = createClient();
-await subscriber.connect();
-
-await subscriber.subscribe(
-  redisRedistributeChannelFactory(serverId),
-  redistributeListener,
-);
-
+// === metrics updating === //
 let socketWritesThisSecond = 0;
-const socketWritesPerChannelThisSecond: Record<string, number> = {};
 const updateMetrics = () => {
   void redisClient.zAdd(serversHeartbeatKey, {
     score: Date.now(),
@@ -190,9 +182,8 @@ const updateMetrics = () => {
     memoryUsage.arrayBuffers,
   );
 };
-
-const lastFiveTimeoutValues = new Array(5).fill(0);
 setInterval(updateMetrics, 1000);
+const lastFiveTimeoutValues = new Array(5).fill(0);
 setInterval(() => {
   const start = performance.now();
   setImmediate(() => {
@@ -200,6 +191,8 @@ setInterval(() => {
     lastFiveTimeoutValues.push(performance.now() - start);
   });
 }, 1000);
+
+// === wss message actions === //
 const registerSocket = async (
   registrationMessage: WebSocketMessage<RegistrationPayload>,
   socket: ClientSocket,
@@ -244,12 +237,6 @@ const registerSocket = async (
             1,
             socket.chatId,
           );
-
-          if (!socketWritesPerChannelThisSecond[socket.chatId]) {
-            socketWritesPerChannelThisSecond[socket.chatId] = 0;
-          }
-
-          socketWritesPerChannelThisSecond[socket.chatId] += 1;
         });
       }
     });
@@ -260,7 +247,6 @@ const registerSocket = async (
   rooms.get(chatChannel)?.clients.add(socket);
 };
 
-const messagesSentPerChannelThisSecond: Record<string, number> = {};
 const publishChat = async (
   message: WebSocketMessage<ChatPayload>,
   socket: ClientSocket,
@@ -269,14 +255,11 @@ const publishChat = async (
     return;
   }
 
-  if (!messagesSentPerChannelThisSecond[socket.chatId]) {
-    messagesSentPerChannelThisSecond[socket.chatId] = 0;
-  }
-  messagesSentPerChannelThisSecond[socket.chatId] += 1;
   void redisClient.zIncrBy(chatRoomCumulativeMessages, 1, socket.chatId);
-  await redisClient.publish(socket.chatId, JSON.stringify(message.payload));
+  void redisClient.publish(socket.chatId, JSON.stringify(message.payload));
 };
 
+// === shutdown === //
 let isShuttingDown = false;
 const shutdown = async (signal = "unknown") => {
   if (isShuttingDown) {
@@ -308,7 +291,6 @@ const shutdown = async (signal = "unknown") => {
     process.exit(0);
   }
 };
-
 process.on("SIGTERM", () => void shutdown("SIGTERM"));
 process.on("SIGINT", () => void shutdown("SIGINT"));
 process.on("SIGUSR2", () => void shutdown("SIGUSR2"));
