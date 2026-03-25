@@ -8,11 +8,9 @@ import {
   NumericList,
   redisRedistributeChannelFactory,
   redisServerKeyFactory,
-  removeServerFromRedis,
   serversClientCountKey,
   serversCumulativeSocketWritesKey,
   serversEventLoopTimeoutKey,
-  serversHeartbeatKey,
 } from "@chat/shared";
 import {
   chatRooms,
@@ -20,44 +18,9 @@ import {
   ppsHistory,
   provisionsThisSecond,
   resetProvisionsThisSecond,
-  serverBlacklist,
   setPps,
   socketServers,
 } from "./state.ts";
-
-const wssServerTimeoutMs: number = Number(
-  process.env.SERVER_TIMEOUT_MS ?? 1_000,
-);
-const wssBlacklistRemovalTimeoutMs = Number(
-  process.env.BLACKLIST_REMOVAL_TIMEOUT_MS ?? 10_000,
-);
-
-const detectTimedOutServers = async () => {
-  const now = Date.now();
-  const cutoff = now - wssServerTimeoutMs;
-  const timedOutServers = await redisClient.zRangeByScore(
-    serversHeartbeatKey,
-    0,
-    cutoff,
-  );
-
-  timedOutServers.forEach((serverId) => {
-    if (!serverBlacklist.has(serverId)) {
-      serverBlacklist.set(serverId, now);
-    }
-  });
-};
-
-const purgeBlacklistedServers = () => {
-  serverBlacklist.forEach((timeout, server) => {
-    if (Date.now() - timeout > wssBlacklistRemovalTimeoutMs) {
-      void removeServerFromRedis(server);
-      serverBlacklist.delete(server);
-      socketServers.get(server)?.process?.kill(0);
-      socketServers.delete(server);
-    }
-  });
-};
 
 const updateServerStateHistoryArray = (
   id: string,
@@ -72,10 +35,7 @@ const updateServerStateHistoryArray = (
   socketServers.get(id)?.state[key]?.push(value);
 };
 
-export const healthChecks = async () => {
-  await detectTimedOutServers();
-  purgeBlacklistedServers();
-};
+export const healthChecks = async () => ({});
 
 export const updateServerState = async () => {
   const [socketWrites, clients, timeoutValues] = await Promise.all([
@@ -195,6 +155,7 @@ export const decideWhatToDoNext = async () => {
   let spawned = false;
   for (let [serverId, wss] of socketServers) {
     const socketWriteDeltas = wss.state.socketWrites.deltas();
+    const timeouts = wss.state.timeouts;
     const aboveSocketWriteBreakpointInLastTenSeconds =
       socketWriteDeltas.lastN(10).filter((d) => d >= SPAWN_NEW_SERVER).length >
       1;
@@ -212,8 +173,9 @@ export const decideWhatToDoNext = async () => {
 
     // redistribute
     if (
-      socketWriteDeltas.lastN(5).filter((d) => d >= SPAWN_NEW_SERVER * 1.33)
-        .length > 1
+      socketWriteDeltas.lastN(5).filter((d) => d >= SPAWN_NEW_SERVER * 1.2)
+        .length > 1 ||
+      timeouts.lastN(4).average() > 15
     ) {
       const serverChatRoomLoads: Record<string, number> = {};
       Object.keys(wss.state.chatRooms).forEach((chatRoomId) => {
@@ -241,9 +203,6 @@ export const decideWhatToDoNext = async () => {
         throw new Error("how did you do this");
       }
 
-      console.log(
-        `redistributing ${serverId} by ${wss.state.clients.last() * 0.04}`,
-      );
       void redisClient.publish(
         redisRedistributeChannelFactory(serverId),
         JSON.stringify({
