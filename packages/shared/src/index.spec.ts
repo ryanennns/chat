@@ -11,7 +11,11 @@ vi.mock("redis", () => ({
   createClient: vi.fn(() => mockRedisClient),
 }));
 
-import { getLowestLoadServer, getLowestLoadServers } from "./index.js";
+import {
+  getLowestLoadServer,
+  getLowestLoadServers,
+  NumericList,
+} from "./index.js";
 
 describe("shared redis helpers", () => {
   beforeEach(() => {
@@ -89,6 +93,22 @@ describe("shared redis helpers", () => {
       const result = await getLowestLoadServer();
 
       expect(result).toBeUndefined();
+    });
+  });
+
+  describe("NumericList", () => {
+    it("calculates deltas", () => {
+      const list = NumericList.fromArray([1, 2, 3, 4, 5]);
+
+      expect(list.deltas().toArray()).toEqual([1, 1, 1, 1]);
+    });
+
+    it("takes every n'th element", () => {
+      const list = NumericList.fromArray([
+        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
+      ]);
+
+      expect(list.takeEvery(4).toArray()).toEqual([1, 5, 9]);
     });
   });
 });

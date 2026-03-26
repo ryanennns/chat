@@ -27,22 +27,32 @@ export class NumericList extends Array<number> {
     return this[0];
   }
 
-  lastN(n: number) {
-    return this.fromArray(this.slice(this.length - n, this.length));
-  }
-
   last() {
     return this[this.length - 1];
   }
 
+  lastN(n: number) {
+    return NumericList.fromArray(this.slice(this.length - n, this.length));
+  }
+
   deltas() {
-    const deltas = this.fromArray(this.map((v, i) => v - (this[i - 1] ?? 0)));
+    const deltas = NumericList.fromArray(
+      this.map((v, i) => v - (this[i - 1] ?? 0)),
+    );
     deltas.shift();
     return deltas;
   }
 
-  fromArray(a: Array<number>) {
+  takeEvery(n: number) {
+    return NumericList.fromArray(this.filter((_, i) => i % n === 0));
+  }
+
+  static fromArray(a: Array<number>) {
     return new NumericList(...a);
+  }
+
+  toArray() {
+    return new Array<number>(...this);
   }
 
   trendScore(k = 3) {
