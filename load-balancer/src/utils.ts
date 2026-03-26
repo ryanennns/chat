@@ -6,7 +6,7 @@ import {
   chatRoomCumulativeSocketWrites,
   chatRoomTotalClientsKey,
   debugLog,
-  defaultServerState,
+  serverStateFactory,
   redisServerKeyFactory,
   removeServerFromRedis,
 } from "@chat/shared";
@@ -118,6 +118,6 @@ export const websocketServerFactory = async (
       url,
     },
     process: child,
-    state: defaultServerState(),
+    state: serverStateFactory(),
   };
 };

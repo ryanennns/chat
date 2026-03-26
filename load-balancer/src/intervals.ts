@@ -11,6 +11,7 @@ import {
   serversClientCountKey,
   serversCumulativeSocketWritesKey,
   serversEventLoopTimeoutKey,
+  serversFanoutCounterKey,
 } from "@chat/shared";
 import {
   chatRooms,
@@ -38,10 +39,11 @@ const updateServerStateHistoryArray = (
 export const healthChecks = async () => ({});
 
 export const updateServerState = async () => {
-  const [socketWrites, clients, timeoutValues] = await Promise.all([
+  const [socketWrites, clients, timeoutValues, fanout] = await Promise.all([
     redisClient.zRangeWithScores(serversCumulativeSocketWritesKey, 0, -1),
     redisClient.zRangeWithScores(serversClientCountKey, 0, -1),
     redisClient.zRangeWithScores(serversEventLoopTimeoutKey, 0, -1),
+    redisClient.zRangeWithScores(serversFanoutCounterKey, 0, -1),
   ]);
 
   // socket writes
@@ -55,6 +57,9 @@ export const updateServerState = async () => {
   timeoutValues.forEach(({ value: id, score: timeout }) =>
     updateServerStateHistoryArray(id, "timeouts", timeout),
   );
+  fanout.forEach(({ value: id, score: fanouts }) => {
+    updateServerStateHistoryArray(id, "fanouts", fanouts);
+  });
 
   for (const cp of [...socketServers.values()]) {
     const hashFields = await redisClient.hGetAll(

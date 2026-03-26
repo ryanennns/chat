@@ -5,12 +5,11 @@ import {
   updateServerState,
 } from "@load-balancer/src/intervals.js";
 import { v4 } from "uuid";
-import { serverBlacklist } from "@load-balancer/src/utils.js";
 import {
   chatRoomCumulativeMessages,
   chatRoomCumulativeSocketWrites,
   chatRoomTotalClientsKey,
-  defaultServerState,
+  serverStateFactory,
   serversClientCountKey,
   serversEventLoopTimeoutKey,
   serversCumulativeSocketWritesKey,
@@ -47,46 +46,12 @@ vi.mock("@chat/shared", async () => {
 describe("intervals", () => {
   beforeEach(() => {
     mockedRemoveServerFromRedis.mockClear();
-    serverBlacklist.clear();
     chatRooms.clear();
     socketServers.clear();
     vi.useRealTimers();
   });
 
-  describe("healthChecks", () => {
-    it("adds timed-out servers to server blacklist", async () => {
-      expect(serverBlacklist.size).toBe(0);
-
-      const uuid = v4();
-      mockRedisClient.zRangeByScore = vi.fn(() => [uuid]);
-      mockRedisClient.zRangeWithScores = vi.fn(() => []);
-
-      await healthChecks();
-
-      expect(serverBlacklist.size).toBe(1);
-    });
-
-    it("removes dead servers from redis", async () => {
-      expect(serverBlacklist.size).toBe(0);
-      const now = Date.now();
-      vi.useFakeTimers();
-      vi.setSystemTime(now);
-
-      const uuid = v4();
-      mockRedisClient.zRangeByScore = vi.fn(() => [uuid]);
-
-      await healthChecks();
-
-      expect(serverBlacklist.size).toBe(1);
-
-      vi.setSystemTime(now + 15_000);
-
-      await healthChecks();
-
-      expect(serverBlacklist.size).toBe(0);
-      expect(mockedRemoveServerFromRedis).toHaveBeenCalledOnce();
-    });
-  });
+  describe("healthChecks", () => {});
 
   describe("updateServerState", () => {
     it("pushes latest values to load balancer state", async () => {
@@ -99,7 +64,7 @@ describe("intervals", () => {
         process: {
           kill: vi.fn(),
         } as never,
-        state: defaultServerState(),
+        state: serverStateFactory(),
       });
 
       let serverState = socketServers.get(serverUuid);
@@ -127,11 +92,17 @@ describe("intervals", () => {
             value: serverUuid,
             score: 3,
           },
+        ])
+        .mockReturnValueOnce([
+          {
+            value: serverUuid,
+            score: 3,
+          },
         ]);
 
       await updateServerState();
 
-      expect(mockRedisClient.zRangeWithScores).toHaveBeenCalledTimes(3);
+      expect(mockRedisClient.zRangeWithScores).toHaveBeenCalledTimes(4);
       [
         serversCumulativeSocketWritesKey,
         serversClientCountKey,

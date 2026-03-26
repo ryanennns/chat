@@ -91,13 +91,15 @@ export interface ServerState {
   clients: NumericList;
   socketWrites: NumericList;
   timeouts: NumericList;
+  fanouts: NumericList;
   chatRooms: Record<string, number>;
   memory: MemoryUsage;
 }
-export const defaultServerState = (): ServerState => ({
+export const serverStateFactory = (): ServerState => ({
   clients: new NumericList(...Array.from({ length: 100 }).map(() => 0)),
   socketWrites: new NumericList(...Array.from({ length: 100 }).map(() => 0)),
   timeouts: new NumericList(...Array.from({ length: 100 }).map(() => 0)),
+  fanouts: new NumericList(...Array.from({ length: 100 }).map(() => 0)),
   chatRooms: {},
   memory: { rss: 0, heapTotal: 0, heapUsed: 0, external: 0, arrayBuffers: 0 },
 });
@@ -108,6 +110,7 @@ export const serversHeartbeatKey = "servers:heartbeat";
 export const serversCumulativeSocketWritesKey =
   "servers:cumulative-socket-writes";
 export const serversEventLoopTimeoutKey = "servers:event-loop";
+export const serversFanoutCounterKey = "servers:fanout";
 export const chatRoomCumulativeSocketWrites =
   "chat-rooms:cumulative-socket-writes";
 export const chatRoomCumulativeMessages = "chat-rooms:cumulative-messages";

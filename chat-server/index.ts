@@ -16,6 +16,7 @@ import {
   serversClientCountKey,
   serversCumulativeSocketWritesKey,
   serversEventLoopTimeoutKey,
+  serversFanoutCounterKey,
   serversHeartbeatKey,
   type WebSocketMessage,
 } from "@chat/shared";
@@ -68,8 +69,8 @@ const websocketServerFactory = (port: number): Promise<WebsocketServerInfo> => {
 };
 let { wss, port, serverId } = await websocketServerFactory(8080);
 await subscriber.subscribe(
-    redisRedistributeChannelFactory(serverId),
-    redistributeListener,
+  redisRedistributeChannelFactory(serverId),
+  redistributeListener,
 );
 const url = `ws://localhost:${port}`;
 debugLog(`started ${serverId} on port ${port}`);
@@ -217,6 +218,8 @@ const registerSocket = async (
 
     await subscriber.subscribe(chatChannel, (message: string) => {
       const room = rooms.get(registrationMessage.payload.chatId);
+
+      void redisClient.zIncrBy(serversFanoutCounterKey, 1, serverId);
 
       if (room === undefined) {
         debugLog(`failed to find room ${registrationMessage.payload.chatId}!`);
