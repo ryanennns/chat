@@ -37,6 +37,7 @@ function trimStats(raw: {
           ...(s.state.socketWrites as number[]),
         ).lastN(100),
         timeouts: new NumericList(...(s.state.timeouts as number[])).lastN(100),
+        fanouts: new NumericList(...(s.state.fanouts as number[])).lastN(100),
         chatRooms: s.state.chatRooms as Record<string, number>,
         memory: (s.state.memory ?? {
           rss: 0,
@@ -181,6 +182,25 @@ function Graph({
   );
 }
 
+function Stat({
+  label,
+  value,
+  color,
+}: {
+  label: string;
+  value: string;
+  color: string;
+}) {
+  return (
+    <div className="summary-stat">
+      <span className="summary-stat-value" style={{ color }}>
+        {value}
+      </span>
+      <span className="summary-stat-label">{label}</span>
+    </div>
+  );
+}
+
 function Summary({
   stats,
   clientsHistory,
@@ -200,6 +220,10 @@ function Summary({
     (sum, r) => sum + (r.cumulativeMessages.deltas().last() ?? 0),
     0,
   );
+  const totalFanouts = stats.socketServers.reduce(
+    (sum, s) => sum + (s.state.fanouts.deltas().last() ?? 0),
+    0,
+  );
   const avgEventLoop =
     stats.socketServers.length > 0
       ? stats.socketServers.reduce(
@@ -207,23 +231,6 @@ function Summary({
           0,
         ) / stats.socketServers.length
       : 0;
-
-  const Stat = ({
-    label,
-    value,
-    color,
-  }: {
-    label: string;
-    value: string;
-    color: string;
-  }) => (
-    <div className="summary-stat">
-      <span className="summary-stat-value" style={{ color }}>
-        {value}
-      </span>
-      <span className="summary-stat-label">{label}</span>
-    </div>
-  );
 
   return (
     <div className="monitor-summary">
@@ -241,6 +248,7 @@ function Summary({
       <Stat label="clients" value={String(totalClients)} color="#7d9fc5" />
       <Stat label="swps" value={String(totalSwps)} color="#3fb950" />
       <Stat label="msg/s" value={String(totalMsgs)} color="#bc8cff" />
+      <Stat label="fanouts/s" value={String(totalFanouts)} color="#f0883e" />
       <div className="summary-divider" />
       <Stat
         label="event loop"
@@ -265,6 +273,7 @@ const mb = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(1)}mb`;
 
 function ServerCard({ s, degraded }: { s: SocketServer; degraded?: boolean }) {
   const swpsDeltas = s.state.socketWrites.deltas();
+  const fanoutDeltas = s.state.fanouts.deltas();
   const mem = s.state.memory;
   return (
     <div className={`server-card${degraded ? " server-card--degraded" : ""}`}>
@@ -276,6 +285,7 @@ function ServerCard({ s, degraded }: { s: SocketServer; degraded?: boolean }) {
       <div className="server-graphs">
         <Graph label="clients" data={s.state.clients} color="#7d9fc5" />
         <Graph label="swps" data={swpsDeltas} color="#3fb950" />
+        <Graph label="fanouts/s" data={fanoutDeltas} color="#f0883e" />
         <Graph
           label="event loop"
           data={s.state.timeouts}
