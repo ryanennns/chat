@@ -4,11 +4,8 @@ import { WebSocketServer } from "ws";
 import {
   addServerToRedis,
   ChatPayload,
-  chatRoomCumulativeMessages,
-  chatRoomCumulativeSocketWrites,
   chatRoomTotalClientsKey,
   debugLog,
-  redisChatCountKeyFactory,
   redisRedistributeChannelFactory,
   redisServerKeyFactory,
   RegistrationPayload,
@@ -16,8 +13,6 @@ import {
   serversClientCountKey,
   serversCumulativeSocketWritesKey,
   serversEventLoopTimeoutKey,
-  serversFanoutCounterKey,
-  serversHeartbeatKey,
   type WebSocketMessage,
 } from "@chat/shared";
 import { ClientSocket, flushRoom, redistributeListener } from "./src/utils.js";
@@ -109,11 +104,6 @@ wss.on("connection", async (socket) => {
     const chatId = client.chatId;
     if (chatId) {
       void redisClient.zIncrBy(chatRoomTotalClientsKey, -1, chatId);
-      void redisClient.hIncrBy(
-        redisServerKeyFactory(serverId),
-        redisChatCountKeyFactory(chatId),
-        -1,
-      );
       rooms.get(chatId)?.clients.delete(client);
     }
 
@@ -140,10 +130,6 @@ wss.on("connection", async (socket) => {
 // === metrics updating === //
 let socketWritesThisSecond = 0;
 const updateMetrics = () => {
-  void redisClient.zAdd(serversHeartbeatKey, {
-    score: Date.now(),
-    value: serverId,
-  });
   void redisClient.zAdd(serversCumulativeSocketWritesKey, {
     score: socketWritesThisSecond,
     value: serverId,
@@ -156,32 +142,6 @@ const updateMetrics = () => {
     score: lastFiveTimeoutValues[0],
     value: serverId,
   });
-  const memoryUsage = process.memoryUsage();
-  void redisClient.hSet(
-    redisServerKeyFactory(serverId),
-    "rss",
-    memoryUsage.rss,
-  );
-  void redisClient.hSet(
-    redisServerKeyFactory(serverId),
-    "heapTotal",
-    memoryUsage.heapTotal,
-  );
-  void redisClient.hSet(
-    redisServerKeyFactory(serverId),
-    "heapUsed",
-    memoryUsage.heapUsed,
-  );
-  void redisClient.hSet(
-    redisServerKeyFactory(serverId),
-    "external",
-    memoryUsage.external,
-  );
-  void redisClient.hSet(
-    redisServerKeyFactory(serverId),
-    "arrayBuffers",
-    memoryUsage.arrayBuffers,
-  );
 };
 setInterval(updateMetrics, 1000);
 const lastFiveTimeoutValues = new Array(5).fill(0);
@@ -200,11 +160,6 @@ const registerSocket = async (
 ) => {
   const chatChannel = registrationMessage.payload.chatId;
   await redisClient.zIncrBy(chatRoomTotalClientsKey, 1, chatChannel);
-  await redisClient.hIncrBy(
-    redisServerKeyFactory(serverId),
-    redisChatCountKeyFactory(chatChannel),
-    1,
-  );
 
   if (rooms.get(chatChannel) === undefined) {
     incrementChatCount();
@@ -219,8 +174,6 @@ const registerSocket = async (
     await subscriber.subscribe(chatChannel, (message: string) => {
       const room = rooms.get(registrationMessage.payload.chatId);
 
-      void redisClient.zIncrBy(serversFanoutCounterKey, 1, serverId);
-
       if (room === undefined) {
         debugLog(`failed to find room ${registrationMessage.payload.chatId}!`);
 
@@ -234,12 +187,6 @@ const registerSocket = async (
           if (!socket.chatId) {
             return;
           }
-
-          void redisClient.zIncrBy(
-            chatRoomCumulativeSocketWrites,
-            1,
-            socket.chatId,
-          );
         });
       }
     });
@@ -258,7 +205,6 @@ const publishChat = async (
     return;
   }
 
-  void redisClient.zIncrBy(chatRoomCumulativeMessages, 1, socket.chatId);
   void redisClient.publish(socket.chatId, JSON.stringify(message.payload));
 };
 

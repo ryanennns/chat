@@ -148,7 +148,7 @@ const resetAddressingServers = () => {
   });
 };
 
-const SPAWN_NEW_SERVER = 40_000;
+const SPAWN_NEW_SERVER = 50_000;
 const otherServersDoNotHaveCapacity = () => {
   let hasCapacity = false;
   for (let [_, wss] of socketServers) {
@@ -203,23 +203,9 @@ export const decideWhatToDoNext = async () => {
           wss.state.chatRooms[chatRoomId];
       });
 
-      let keyOfHighestLoadChatRoomOnServer: string | undefined = undefined;
-      let maxValue = 0;
-      for (const [key, value] of Object.entries(serverChatRoomLoads)) {
-        if (value > maxValue) {
-          maxValue = value;
-          keyOfHighestLoadChatRoomOnServer = key;
-        }
-      }
-
-      if (!keyOfHighestLoadChatRoomOnServer) {
-        throw new Error("how did you do this");
-      }
-
       void redisClient.publish(
         redisRedistributeChannelFactory(serverId),
         JSON.stringify({
-          chatRoom: keyOfHighestLoadChatRoomOnServer,
           n: wss.state.clients.last() * 0.04,
         }),
       );
