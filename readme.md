@@ -1,8 +1,6 @@
 # chat
 
-This project came to be one morning when I decided I wanted to spend time looking into Redis.
-Specifically, I was interested in trying to recreate Laravel's queue system, though this quickly
-took a backseat.
+![diagram](./diagram.png)
 
 ## The Chat Server
 
@@ -150,7 +148,8 @@ source of truth for what servers exist is a property of the load balancer itself
 
 ### Server Interface
 
-The load balancer's mental model of what servers are available to it live in the `socketServers` `Map<string, ChildProcess>`;
+The load balancer's mental model of what servers are available to it live in the `socketServers`
+`Map<string, ChildProcess>`;
 a somewhat Frankenstein type:
 
 ```typescript
@@ -181,6 +180,121 @@ the project, hence it (unfortunately) still exists. This is the payload that is 
 number of clients, the event loop timeout, and the cumulative number of socket writes it has published. Additionally, we
 track the chat rooms that the Server is servicing in the form of a `string` (ID) → `number` (# of clients) `Record`.
 
-![diagram](./diagram.png)
+### The API
+
+The core functionality of the load balancer's API is so simple, I could inline the definition of the provision endpoint
+controller, and you'd probably get the gist of it. But, I digress.
+
+#### `/servers/provision`
+
+The core purpose of the API is to provide clients with the _lowest load websocket server_ at any given point. How you
+define "load" is up to interpretation - as I've explained above, I defined load as the number of web sockets per second
+a server is experiencing. Before I had these metrics available to myself, I was using the number of clients (though
+this is obviously a shortsighted strategy). Event loop timeout or process memory / CPU usage would also work.
+
+As seen in the `ServerState` interface above, we keep a running tally of the cumulative socket writes, and thus can
+derive the socket writes experienced per second by taking the deltas of these values. As such, the first operation our
+endpoint performs is sorting the existing servers by the average socket writes per second across the last 3 seconds:
+
+```typescript
+let servers = [...socketServers.values()]
+  .map((s) => ({
+    server: s.server,
+    state: s.state,
+  }))
+  .sort(
+    (a, b) =>
+      a.state.socketWrites.deltas().lastN(3).average() -
+      b.state.socketWrites.deltas().lastN(3).average(),
+  );
+// .deltas(), .lastN(...), and .average() come from my custom Array<number> type, `NumericList`.
+```
+
+From here, we simply take the first element, ensure it's defined, and return the `.server` property:
+
+```typescript
+let server = servers[0]!.server;
+
+if (!server) {
+  res.sendStatus(404);
+  return;
+}
+
+res.status(200).json({
+  id: server.id,
+  url: server.url,
+});
+```
+
+### The Event Loop
+
+Much of the core functionality of the load balancer (namely, the balancing of the load) occurs within intervals. Every
+second, the load balancer updates its server and chat room state through reading the latest Redis hashes and ranges and
+either spawns new servers or tells existing servers to offload clients, depending on what the distribution of traffic
+looks like.
+
+```typescript
+setInterval(async () => {
+  await updateServerState();
+  await updateChatRoomState();
+
+  await spawnOrRedistribute();
+  resetAddressingServers();
+}, 1000);
+```
+
+The updating of server and chat room state is predictably uneventful - as you might imagine, it's a lot of
+`Promise.all`ing over multiple Redis client calls and subsequently attributing the results to the correct variables.
+
+More interesting is the decision-making tree defined in `spawnOrRedistribute`, as this determines the criteria
+by which new servers are spawned and existing server's clientele are redistributed. There are surely some complex
+methods one could use here to determine the optimal time to spawn a new server or to progressively minimize the load a
+server is experiencing. Yet every time I tried to get smart, I found myself confused with why it wasn't working. It's
+because of this that I kept this decision-making tree as dumb as possible.
+
+#### Spawning a New Server
+
+Spawning a new server occurs only once per interval. If a server has surpassed the max socket writes per second in the
+last three seconds and no other server has availability, we will spawn a fresh server. These are extracted to constants
+as follows:
+
+`SPAWN_NEW_SERVER`
+
+```
+FOR EACH server
+  IF
+    server's socket writes per second (last 3s) > SPAWN_NEW_SERVER
+    AND NO other server has avg socket writes per second (last 3s) ≥ 0.8 * SPAWN_NEW_SERVER
+    AND last spawn for server timestamp > ADDRESSING_SERVER_TIMEOUT
+    AND no server has been spawned this interval
+  THEN
+    spawn new server
+```
+
+#### Redistributing Server Clients
+
+Redistribution occurs when either (a) a server has passed 115% of the `SPAWN_NEW_SERVER` within the last 5 seconds, or
+(b) has an event loop timeout lag of >15ms across the last 4 seconds.
+
+```
+FOR EACH server
+  IF
+    server's socket writes per second (last 5s) > SPAWN_NEW_SERVER * 1.15
+    OR server's last 4 timeouts average > 15
+  THEN
+    tell the server to offload 4% of its total clients
+```
+
+Since this check is executed every second, and we check the last five seconds, this process will be repeated every
+interval until there is no frame where there was a socket write quantity greater than `SPAWN_NEW_SERVER` + 15%.
+Redistribution is achieved through Redis pub-sub messages - each server has a unique UUID that it subscribes to as a
+channel, which in turn is used on the load balancer side to publish a message to it.
+
+> **Redistribute messages are not accumulated on the chat servers.** For instance, if one interval we send a
+> redistribute
+> message indicating the server should dump 100 users, the server begins that process but hasn't dumped all of them
+> before the next 1000ms interval. The load balancer sends another redistribute message, which this time tells the
+> server to redistribute by 85 users - this value takes the place of whatever the redistribute counter is at the time
+> of the message send. It is **not** added.
 
 ![functions](./functions.png)
