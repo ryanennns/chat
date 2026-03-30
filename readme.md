@@ -18,14 +18,14 @@ In code (using [`node-redis`](https://www.npmjs.com/package/redis)), it looks so
 
 ```typescript
 redisClient.subscribe("some-channel", (message: string) =>
-  console.log(JSON.parse(message)),
+    console.log(JSON.parse(message)),
 );
 
 redisClient.publish(
-  "some-channel",
-  JSON.stringify({
-    some: "data",
-  }),
+    "some-channel",
+    JSON.stringify({
+      some: "data",
+    }),
 );
 ```
 
@@ -86,7 +86,7 @@ This is the basic back-and-forth between clients, servers and Redis; clients sen
 messages to Redis, Redis fans these messages out to each server, and servers push Redis-provided messages to the
 appropriate clients.
 
-### _Calculating Server Load_
+### Calculating Server Load
 
 The process of fanning messages out across multiple servers and the subsequent process of each server writing
 these messages to potentially hundreds of users who, in turn, are sending cumulatively hundreds of messages per
@@ -123,6 +123,28 @@ proved incredibly useful for testing purposes and, in a pinch, I'm sure would pr
 a production environment. Regardless, it could be greatly improved by removing the room parameter entirely and
 running this calculation on a per-room basis.
 
+### Chat Server State
+
+Beyond managing socket messages and Redis pub-sub, the chat server is responsible for publishing performance metrics
+every second and publishing its own metadata through sorted sets and hash entries. Additionally, it contributes to chat
+room metrics as well.
+
+Sorted sets are used for:
+
+- \# of clients on a server (`servers:clients`)
+- \# of clients per chat room (`chat-rooms:clients`)
+- Cumulative socket writes (`servers:cumulative-socket-writes`)
+- Event loop timeouts (`servers:event-loop`)
+
+...and hash sets are used for server metadata (under `server:{uuid}`):
+
+```json
+{
+  "id": "a23f85d6-c479-4182-8462-22bf56eb3066",
+  "url": "ws://localhost:8080"
+}
+```
+
 ## The Load Balancer
 
 Clients ought not to connect directly to a websocket socket server. Instead, they should ask some tertiary service
@@ -153,7 +175,7 @@ The load balancer's mental model of what servers are available to it live in the
 a somewhat Frankenstein type:
 
 ```typescript
-import type { ChildProcessWithoutNullStreams } from "node:child_process";
+import type {ChildProcessWithoutNullStreams} from "node:child_process";
 
 export interface Server {
   id: string;
@@ -198,15 +220,15 @@ endpoint performs is sorting the existing servers by the average socket writes p
 
 ```typescript
 let servers = [...socketServers.values()]
-  .map((s) => ({
-    server: s.server,
-    state: s.state,
-  }))
-  .sort(
-    (a, b) =>
-      a.state.socketWrites.deltas().lastN(3).average() -
-      b.state.socketWrites.deltas().lastN(3).average(),
-  );
+    .map((s) => ({
+      server: s.server,
+      state: s.state,
+    }))
+    .sort(
+        (a, b) =>
+            a.state.socketWrites.deltas().lastN(3).average() -
+            b.state.socketWrites.deltas().lastN(3).average(),
+    );
 // .deltas(), .lastN(...), and .average() come from my custom Array<number> type, `NumericList`.
 ```
 
@@ -255,10 +277,7 @@ because of this that I kept this decision-making tree as dumb as possible.
 #### Spawning a New Server
 
 Spawning a new server occurs only once per interval. If a server has surpassed the max socket writes per second in the
-last three seconds and no other server has availability, we will spawn a fresh server. These are extracted to constants
-as follows:
-
-`SPAWN_NEW_SERVER`
+last three seconds and no other server has availability, we will spawn a fresh server.
 
 ```
 FOR EACH server
@@ -291,10 +310,9 @@ Redistribution is achieved through Redis pub-sub messages - each server has a un
 channel, which in turn is used on the load balancer side to publish a message to it.
 
 > **Redistribute messages are not accumulated on the chat servers.** For instance, if one interval we send a
-> redistribute
-> message indicating the server should dump 100 users, the server begins that process but hasn't dumped all of them
-> before the next 1000ms interval. The load balancer sends another redistribute message, which this time tells the
-> server to redistribute by 85 users - this value takes the place of whatever the redistribute counter is at the time
-> of the message send. It is **not** added.
+> redistribute message indicating the server should dump 100 users, the server begins that process but hasn't dumped all
+> of them before the next 1000ms interval. The load balancer sends another redistribute message, which this time tells
+> the server to redistribute by 85 users - this value takes the place of whatever the redistribute counter is at the
+> time of the message send. It is **not** added.
 
 ![functions](./functions.png)
