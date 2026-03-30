@@ -170,7 +170,7 @@ export const decideWhatToDoNext = async () => {
     const socketWriteDeltas = wss.state.socketWrites.deltas();
     const timeouts = wss.state.timeouts;
     const aboveSocketWriteBreakpointInLastTenSeconds =
-      socketWriteDeltas.lastN(10).filter((d) => d >= SPAWN_NEW_SERVER).length >
+      socketWriteDeltas.lastN(3).filter((d) => d >= SPAWN_NEW_SERVER).length >
       1;
 
     if (
@@ -186,7 +186,7 @@ export const decideWhatToDoNext = async () => {
 
     // redistribute
     if (
-      socketWriteDeltas.lastN(5).filter((d) => d >= SPAWN_NEW_SERVER * 1.2)
+      socketWriteDeltas.lastN(5).filter((d) => d >= SPAWN_NEW_SERVER * 1.15)
         .length > 1 ||
       timeouts.lastN(4).average() > 15
     ) {
