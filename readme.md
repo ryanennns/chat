@@ -1,6 +1,13 @@
-# chat
+# Chat
 
 ![diagram](./diagram.png)
+
+Over the past few weeks I've been working on a distributed, real-time chat system with the intention of reproducing
+the chat services you see in livestreams. In the end, I converged upon a repository with four projects. Two are a
+websocket chat server and a load balancer, and two that are AI generated helpers - a metrics visualizer and a test
+harness that simulates large scale chat load. On the topic of AI, I did my best to **not** leverage it in the
+implementations of the chat server and load balancer, though it did sneak in here and there. My goals here weren't to
+learn about vibe coding - they were to learn about small distributed systems and high bandwidth chat systems.
 
 ## The Chat Server
 
@@ -315,4 +322,32 @@ channel, which in turn is used on the load balancer side to publish a message to
 > the server to redistribute by 85 users - this value takes the place of whatever the redistribute counter is at the
 > time of the message send. It is **not** added.
 
-![functions](./functions.png)
+## Obligatory Note on AI
+
+As is the industry standard these days, I need to give AI its flowers. Much to the contrary of a lot of people these
+days, I do my best to stay away from AI when working on more complex side projects where my goal is _learning_ instead
+of maximum token churn. These are my main takeaways.
+
+### Do what I _don't_ want to do.
+
+My goals with this project were to (a) learn about Redis, (b) experiment with websockets, (c) handle large data
+throughput firsthand, and follow any interesting paths that arise from this experimentation. My goals were _not_ to
+spend time writing a front end and build testing tools. AI's contributions allowed me to work on what I actually _want_
+to do, and not have to waste time on things I _have_ to do.
+
+As described above, I maintain arrays of metric history that inform my load balance decision-making. If you've looked
+into the code, though, you'll see that these arrays are maintained at 100 entries long yet, in my load balancing logic,
+I not once look any longer than 10 seconds into the past. I partially maintain so much extra state for potential future
+logic changes, but I also want to be able to visualize these statistics on a dashboard - and this is where AI came into
+play.
+
+Claude was a big help in generating a simple Vite+React app for visualizing this data. Additionally, it created a new
+endpoint in the load balancer Express app to poll every second for update statistics. While it needed predictable
+subsequent prompting to hone in the styling, it saved me an extraordinary amount of time working on something that
+(despite my enjoyment of writing React and Tailwind) I had no interest in working on. Honourable mention as well to the
+multiple [blessed](https://github.com/chjj/blessed)-based terminal UIs that, while very cool, proved to be either too
+resource-intensive or inflexible for long term use.
+
+The test harness node project was also entirely vibe coded - this was another huge help. I simply defined what
+parameters mattered (users, rooms, message interval) and had these extracted to `.env` vars. The last thing I wanted
+to do was spend time making this on my own, and I've not once looked at the code beyond the constants.
