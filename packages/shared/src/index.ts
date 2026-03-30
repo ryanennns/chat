@@ -116,7 +116,6 @@ export const serverStateFactory = (): ServerState => ({
 
 export const redistributeChannel = "wss-redistribute";
 export const serversClientCountKey = "servers:clients";
-export const serversHeartbeatKey = "servers:heartbeat";
 export const serversCumulativeSocketWritesKey =
   "servers:cumulative-socket-writes";
 export const serversEventLoopTimeoutKey = "servers:event-loop";
@@ -143,10 +142,6 @@ export const addServerToRedis = async (server: Server) => {
     score: 0,
     value: server.id,
   });
-  await redisClient.zAdd(serversHeartbeatKey, {
-    score: Date.now(),
-    value: server.id,
-  });
   await redisClient.zAdd(serversCumulativeSocketWritesKey, {
     score: 0,
     value: server.id,
@@ -161,7 +156,6 @@ export const removeServerFromRedis = async (serverId: string) => {
 
   await redisClient.del(redisServerKeyFactory(serverId));
   await redisClient.zRem(serversClientCountKey, serverId);
-  await redisClient.zRem(serversHeartbeatKey, serverId);
   await redisClient.zRem(serversCumulativeSocketWritesKey, serverId);
 
   redisClient.destroy();

@@ -36,8 +36,6 @@ const updateServerStateHistoryArray = (
   socketServers.get(id)?.state[key]?.push(value);
 };
 
-export const healthChecks = async () => ({});
-
 export const updateServerState = async () => {
   const [socketWrites, clients, timeoutValues, fanout] = await Promise.all([
     redisClient.zRangeWithScores(serversCumulativeSocketWritesKey, 0, -1),
@@ -129,11 +127,10 @@ export const updateChatRoomState = async () => {
 
 export const startIntervals = () => {
   setInterval(async () => {
-    await healthChecks();
     await updateServerState();
     await updateChatRoomState();
 
-    await decideWhatToDoNext();
+    await spawnOrRedistribute();
     resetAddressingServers();
   }, 1000);
 };
@@ -164,7 +161,7 @@ const otherServersDoNotHaveCapacity = () => {
 
   return !hasCapacity;
 };
-export const decideWhatToDoNext = async () => {
+export const spawnOrRedistribute = async () => {
   let spawned = false;
   for (let [serverId, wss] of socketServers) {
     const socketWriteDeltas = wss.state.socketWrites.deltas();
