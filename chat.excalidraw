@@ -7,9 +7,9 @@
       "id": "wzQ8LRjum4nx8W0eVMCD_",
       "type": "rectangle",
       "x": -261.303169686851,
-      "y": -251.89832788183207,
+      "y": -209.9417584726043,
       "width": 682.6757225203467,
-      "height": 424.6301203725974,
+      "height": 382.6735509633696,
       "angle": 0,
       "strokeColor": "#1e1e1e",
       "backgroundColor": "transparent",
@@ -25,8 +25,8 @@
         "type": 3
       },
       "seed": 143275881,
-      "version": 773,
-      "versionNonce": 1631784695,
+      "version": 819,
+      "versionNonce": 1190939874,
       "isDeleted": false,
       "boundElements": [
         {
@@ -38,7 +38,7 @@
           "type": "arrow"
         }
       ],
-      "updated": 1774463981711,
+      "updated": 1774960537689,
       "link": null,
       "locked": false
     },
@@ -64,8 +64,8 @@
         "type": 2
       },
       "seed": 781022825,
-      "version": 640,
-      "versionNonce": 40134793,
+      "version": 641,
+      "versionNonce": 428733218,
       "isDeleted": false,
       "boundElements": [
         {
@@ -89,7 +89,7 @@
           "type": "arrow"
         }
       ],
-      "updated": 1774366298863,
+      "updated": 1774960509076,
       "link": null,
       "locked": false
     },
@@ -241,8 +241,8 @@
       "type": "arrow",
       "x": 633.0053762185856,
       "y": 73.76524341981461,
-      "width": 218.66637555713754,
-      "height": 111.96578574807067,
+      "width": 218.66637555713748,
+      "height": 90.43249824829697,
       "angle": 0,
       "strokeColor": "#1e1e1e",
       "backgroundColor": "transparent",
@@ -256,8 +256,8 @@
       "index": "aE",
       "roundness": null,
       "seed": 1105210183,
-      "version": 2704,
-      "versionNonce": 83283255,
+      "version": 2748,
+      "versionNonce": 783110562,
       "isDeleted": false,
       "boundElements": [
         {
@@ -265,7 +265,7 @@
           "id": "9g6wz-KETozupXk_s-EEK"
         }
       ],
-      "updated": 1774463997629,
+      "updated": 1774960532314,
       "link": null,
       "locked": false,
       "points": [
@@ -278,8 +278,8 @@
           -83.85776399515046
         ],
         [
-          -218.66637555713754,
-          -111.96578574807067
+          -218.66637555713748,
+          -90.43249824829697
         ]
       ],
       "startBinding": {
@@ -744,9 +744,9 @@
       "id": "f7gV5EwC_IPaQLvIWvNd-",
       "type": "rectangle",
       "x": 85.93811296675312,
-      "y": -240.76041809513714,
+      "y": -195.63731514559032,
       "width": 322.40088769469503,
-      "height": 402.36661301208954,
+      "height": 357.2435100625427,
       "angle": 0,
       "strokeColor": "#1e1e1e",
       "backgroundColor": "transparent",
@@ -764,8 +764,8 @@
         "type": 3
       },
       "seed": 1808634471,
-      "version": 332,
-      "versionNonce": 1857322695,
+      "version": 376,
+      "versionNonce": 181362146,
       "isDeleted": false,
       "boundElements": [
         {
@@ -777,15 +777,15 @@
           "type": "arrow"
         }
       ],
-      "updated": 1774366336389,
+      "updated": 1774960532314,
       "link": null,
       "locked": false
     },
     {
       "id": "unKKz1f1yJBFRcbhZQI-m",
       "type": "text",
-      "x": 107.63009972621478,
-      "y": -231.0298888227003,
+      "x": 106.83846634113502,
+      "y": -185.90678587315344,
       "width": 73.15019226074219,
       "height": 23.75,
       "angle": 0,
@@ -803,11 +803,11 @@
       "index": "ag",
       "roundness": null,
       "seed": 1045973577,
-      "version": 27,
-      "versionNonce": 230125801,
+      "version": 66,
+      "versionNonce": 1590182654,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1774366143047,
+      "updated": 1774960528986,
       "link": null,
       "locked": false,
       "text": "web API",
@@ -823,8 +823,8 @@
     {
       "id": "EZ6_bEafZ77MSGzuCjSb5",
       "type": "text",
-      "x": 105.02757245134819,
-      "y": -201.2512790834526,
+      "x": 108.19410599166724,
+      "y": -152.9616425935867,
       "width": 228.80047607421875,
       "height": 300,
       "angle": 0,
@@ -842,11 +842,11 @@
       "index": "ah",
       "roundness": null,
       "seed": 1912403945,
-      "version": 475,
-      "versionNonce": 141755463,
+      "version": 535,
+      "versionNonce": 1584856802,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1774366069138,
+      "updated": 1774960525534,
       "link": null,
       "locked": false,
       "text": "GET    /servers/provision\ngets lowest load server,\nreturns the ID\n\nPOST   /servers/create\nfor debug; creates new\nserver and returns ID/url\n\nDELETE /servers/delete\nfor debug; deletes random\nwss server\n\nGET    /redis-stats\nfor client; returns server\n& chat room state",
@@ -862,8 +862,8 @@
     {
       "id": "SkBUDGnAv0gF4slg9tJGL",
       "type": "text",
-      "x": -247.92775353890067,
-      "y": -277.61386398506795,
+      "x": -243.96958661350186,
+      "y": -238.0321947310795,
       "width": 107.57577514648438,
       "height": 21.25,
       "angle": 0,
@@ -879,11 +879,11 @@
       "index": "al",
       "roundness": null,
       "seed": 805314759,
-      "version": 43,
-      "versionNonce": 333263431,
+      "version": 75,
+      "versionNonce": 572095102,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1774365673583,
+      "updated": 1774960539536,
       "link": null,
       "locked": false,
       "text": "load-balancer",
@@ -899,10 +899,10 @@
     {
       "id": "zH93WOSwYAwAz3IbbwTLj",
       "type": "rectangle",
-      "x": -248.8472189370334,
-      "y": -241.8042967333363,
+      "x": -248.05558555195364,
+      "y": -195.88956039870965,
       "width": 322.40088769469503,
-      "height": 402.36661301208954,
+      "height": 354.8686099073034,
       "angle": 0,
       "strokeColor": "#1e1e1e",
       "backgroundColor": "transparent",
@@ -920,8 +920,8 @@
         "type": 3
       },
       "seed": 521931847,
-      "version": 276,
-      "versionNonce": 1875222249,
+      "version": 351,
+      "versionNonce": 690051298,
       "isDeleted": false,
       "boundElements": [
         {
@@ -929,15 +929,15 @@
           "type": "arrow"
         }
       ],
-      "updated": 1774366297457,
+      "updated": 1774960534619,
       "link": null,
       "locked": false
     },
     {
       "id": "uHMyUmlVxr4ZE4VwhRAXK",
       "type": "text",
-      "x": -224.51485729774453,
-      "y": -227.37236839870758,
+      "x": -230.05629099330292,
+      "y": -171.16639805804397,
       "width": 168.29885864257812,
       "height": 22.5,
       "angle": 0,
@@ -955,11 +955,11 @@
       "index": "am",
       "roundness": null,
       "seed": 1157115815,
-      "version": 86,
-      "versionNonce": 986176647,
+      "version": 169,
+      "versionNonce": 1692032574,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1774366081053,
+      "updated": 1774960518562,
       "link": null,
       "locked": false,
       "text": "1_000ms intervals",
@@ -975,10 +975,10 @@
     {
       "id": "d8PwtXlba0Sn_QD7CwC_o",
       "type": "text",
-      "x": -232.89924287254496,
-      "y": -194.7275488138023,
+      "x": -233.69087625762472,
+      "y": -136.1466783178994,
       "width": 290.7250061035156,
-      "height": 330.568682500694,
+      "height": 272.23303264763035,
       "angle": 0,
       "strokeColor": "#1e1e1e",
       "backgroundColor": "transparent",
@@ -994,30 +994,30 @@
       "index": "amV",
       "roundness": null,
       "seed": 1377457863,
-      "version": 533,
-      "versionNonce": 180925351,
+      "version": 629,
+      "versionNonce": 1906157794,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1774366081053,
+      "updated": 1774960516166,
       "link": null,
       "locked": false,
-      "text": "- perform heartbeat based health\nchecks; purge timed out servers\n\n- update in-memory server states\nfrom redis stored server level\nmetrics\n\n- update in-memory chat room\nstates from redis stored chat\nroom level metrics\n\n- determine if current trends\nrequire a new server to be spawned\n\n- determine if any existing server\nis breaching capacity and should\noffload clients",
+      "text": "- update in-memory server states\nfrom redis stored server level\nmetrics\n\n- update in-memory chat room\nstates from redis stored chat\nroom level metrics\n\n- determine if current trends\nrequire a new server to be spawned\n\n- determine if any existing server\nis breaching capacity and should\noffload clients",
       "fontSize": 15.556173294150305,
       "fontFamily": 8,
       "textAlign": "left",
       "verticalAlign": "top",
       "containerId": null,
-      "originalText": "- perform heartbeat based health\nchecks; purge timed out servers\n\n- update in-memory server states\nfrom redis stored server level\nmetrics\n\n- update in-memory chat room\nstates from redis stored chat\nroom level metrics\n\n- determine if current trends\nrequire a new server to be spawned\n\n- determine if any existing server\nis breaching capacity and should\noffload clients",
+      "originalText": "- update in-memory server states\nfrom redis stored server level\nmetrics\n\n- update in-memory chat room\nstates from redis stored chat\nroom level metrics\n\n- determine if current trends\nrequire a new server to be spawned\n\n- determine if any existing server\nis breaching capacity and should\noffload clients",
       "autoResize": true,
       "lineHeight": 1.25
     },
     {
       "id": "s9MZy7ZZzqMZJ7UHp1z4n",
       "type": "text",
-      "x": 211.95810545314507,
-      "y": 627.021096845714,
-      "width": 229.48596376242273,
-      "height": 178.84526393695714,
+      "x": 212.53361123640272,
+      "y": 622.9925563629107,
+      "width": 229.19349670410156,
+      "height": 163.94149194221072,
       "angle": 0,
       "strokeColor": "#1e1e1e",
       "backgroundColor": "transparent",
@@ -1034,30 +1034,30 @@
       "index": "an",
       "roundness": null,
       "seed": 1368994857,
-      "version": 1133,
-      "versionNonce": 921816080,
+      "version": 1153,
+      "versionNonce": 1795980002,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1774531109484,
+      "updated": 1774960488004,
       "link": null,
       "locked": false,
-      "text": "server: {\n    id: \"a49a5dcc-ce12-46d7\",\n    url: \"ws://localhost:8080\"\n    chat_rooms: {\n        \"chat-room-1\": 20,\n        \"chat-room-2\": 4,\n    }\n    clients: 24,\n    cumulative_socket_writes: 4e10,\n    event_loop: 0.12,\n    heartbeat: 1774365001\n}",
+      "text": "server: {\n    id: \"a49a5dcc-ce12-46d7\",\n    url: \"ws://localhost:8080\"\n    chat_rooms: {\n        \"chat-room-1\": 20,\n        \"chat-room-2\": 4,\n    }\n    clients: 24,\n    cumulative_socket_writes: 4e10,\n    event_loop: 0.12\n}",
       "fontSize": 11.923017595797143,
       "fontFamily": 8,
       "textAlign": "left",
       "verticalAlign": "top",
       "containerId": null,
-      "originalText": "server: {\n    id: \"a49a5dcc-ce12-46d7\",\n    url: \"ws://localhost:8080\"\n    chat_rooms: {\n        \"chat-room-1\": 20,\n        \"chat-room-2\": 4,\n    }\n    clients: 24,\n    cumulative_socket_writes: 4e10,\n    event_loop: 0.12,\n    heartbeat: 1774365001\n}",
+      "originalText": "server: {\n    id: \"a49a5dcc-ce12-46d7\",\n    url: \"ws://localhost:8080\"\n    chat_rooms: {\n        \"chat-room-1\": 20,\n        \"chat-room-2\": 4,\n    }\n    clients: 24,\n    cumulative_socket_writes: 4e10,\n    event_loop: 0.12\n}",
       "autoResize": true,
       "lineHeight": 1.25
     },
     {
       "id": "3gD_ATjYUukLPmXP7puE5",
       "type": "rectangle",
-      "x": 198.23811034271728,
-      "y": 528.2381183883546,
+      "x": 198.81361612597493,
+      "y": 524.2095779055512,
       "width": 257.7260455461283,
-      "height": 384.08044320795995,
+      "height": 336.8889689808354,
       "angle": 0,
       "strokeColor": "#1e1e1e",
       "backgroundColor": "transparent",
@@ -1074,21 +1074,21 @@
       "index": "ao",
       "roundness": null,
       "seed": 1550217577,
-      "version": 983,
-      "versionNonce": 1023265296,
+      "version": 1065,
+      "versionNonce": 1685495550,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1774531109484,
+      "updated": 1774960493539,
       "link": null,
       "locked": false
     },
     {
       "id": "yx_IXjzLcN7kwz7fdqC3e",
       "type": "text",
-      "x": 211.2545994346966,
-      "y": 815.8738421061867,
-      "width": 222.92922194063922,
-      "height": 89.42263196847857,
+      "x": 211.83010521795424,
+      "y": 793.7168694507684,
+      "width": 144.06448364257812,
+      "height": 59.61508797898573,
       "angle": 0,
       "strokeColor": "#1e1e1e",
       "backgroundColor": "transparent",
@@ -1105,30 +1105,30 @@
       "index": "ap",
       "roundness": null,
       "seed": 1022645289,
-      "version": 1290,
-      "versionNonce": 1557792784,
+      "version": 1375,
+      "versionNonce": 764863934,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1774531109484,
+      "updated": 1774960490442,
       "link": null,
       "locked": false,
-      "text": "chat_room: {\n    id: \"chat-room-1\",\n    clients: 20,\n    cumulative_messages: 50,\n    cumulative_socket_writes: 1000\n}",
+      "text": "chat_room: {\n    id: \"chat-room-1\",\n    clients: 20\n}",
       "fontSize": 11.923017595797145,
       "fontFamily": 8,
       "textAlign": "left",
       "verticalAlign": "top",
       "containerId": null,
-      "originalText": "chat_room: {\n    id: \"chat-room-1\",\n    clients: 20,\n    cumulative_messages: 50,\n    cumulative_socket_writes: 1000\n}",
+      "originalText": "chat_room: {\n    id: \"chat-room-1\",\n    clients: 20\n}",
       "autoResize": true,
       "lineHeight": 1.25
     },
     {
       "id": "RiA8OCcBh4rZP58u4ZZw9",
       "type": "arrow",
-      "x": -84.47381853859869,
-      "y": 166.56231627875326,
-      "width": 185.92778763298134,
-      "height": 224.54383305011834,
+      "x": -83.7520691036968,
+      "y": 164.97904950859373,
+      "width": 185.20603819807945,
+      "height": 226.12709982027786,
       "angle": 0,
       "strokeColor": "#1e1e1e",
       "backgroundColor": "transparent",
@@ -1144,8 +1144,8 @@
         "type": 2
       },
       "seed": 1407829577,
-      "version": 169,
-      "versionNonce": 377841463,
+      "version": 191,
+      "versionNonce": 2103012158,
       "isDeleted": false,
       "boundElements": [
         {
@@ -1153,7 +1153,7 @@
           "id": "Y_fuXi72x6cbzg3morv6J"
         }
       ],
-      "updated": 1774463800991,
+      "updated": 1774960513179,
       "link": null,
       "locked": false,
       "points": [
@@ -1162,12 +1162,12 @@
           0
         ],
         [
-          68.85429136305746,
-          131.53869606983693
+          68.13254192815556,
+          133.12196283999646
         ],
         [
-          185.92778763298134,
-          224.54383305011834
+          185.20603819807945,
+          226.12709982027786
         ]
       ],
       "startBinding": {
@@ -1188,7 +1188,8 @@
       },
       "startArrowhead": null,
       "endArrowhead": "arrow",
-      "elbowed": false
+      "elbowed": false,
+      "moveMidPointsWithElement": false
     },
     {
       "id": "Y_fuXi72x6cbzg3morv6J",
